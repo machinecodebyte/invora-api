@@ -11,6 +11,9 @@ from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
 from app.modules.auth.infrastructure import models as auth_models  # noqa: F401
+from app.modules.inventory.infrastructure import (  # noqa: F401
+    models as inventory_models,
+)
 from app.modules.products.infrastructure import models as product_models  # noqa: F401
 
 config = context.config

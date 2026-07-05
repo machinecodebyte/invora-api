@@ -22,7 +22,7 @@ Authorization: Bearer <access_token>
 ```
 
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
-   Products endpoint.
+   Products or Inventory endpoint.
 
 ## Current API Groups
 
@@ -30,6 +30,7 @@ Authorization: Bearer <access_token>
 - `auth`
 - `Users`
 - `Products`
+- `Inventory`
 
 ## Auth APIs Implemented
 
@@ -80,9 +81,25 @@ blocked while the category has active products.
 Allowed units are `pcs`, `kg`, `gram`, `liter`, `ml`, `box`, `packet`, and
 `dozen`.
 
+## Inventory APIs Implemented
+
+- `POST /api/v1/inventory/items`
+- `GET /api/v1/inventory/items`
+- `GET /api/v1/inventory/items/{product_id}`
+- `PATCH /api/v1/inventory/items/{product_id}`
+- `POST /api/v1/inventory/movements`
+- `GET /api/v1/inventory/movements`
+- `GET /api/v1/inventory/low-stock`
+- `GET /api/v1/inventory/summary`
+
+Inventory APIs require `Authorization: Bearer <access_token>`, validate product
+ownership, return only the current user's inventory, and keep stock data inside
+Inventory tables. `PATCH /inventory/items/{product_id}` updates thresholds and
+active status only. Stock quantity changes must be recorded through
+`POST /inventory/movements`, which creates immutable ledger rows.
+
 ## Pending Future Modules
 
-- Inventory
 - Sales Upload
 - Forecasting
 - Recommendations
@@ -94,6 +111,6 @@ Allowed units are `pcs`, `kg`, `gram`, `liter`, `ml`, `box`, `packet`, and
 
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
-Protected Auth, Users, and Products routes should be tested with
+Protected Auth, Users, Products, and Inventory routes should be tested with
 `Authorization: Bearer <access_token>`. Use the refresh token only with
 `/auth/refresh` and `/auth/logout`; it should not be used as an access token.

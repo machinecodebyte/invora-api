@@ -24,6 +24,10 @@ Unit tests cover:
 - duplicate product SKU and duplicate category behavior
 - category archive conflict with active products
 - product sort field validation
+- inventory stock-in, stock-out, and adjustment calculations
+- inventory negative stock prevention
+- inventory low-stock and out-of-stock status calculations
+- inventory threshold, movement type, and sort field validation
 
 ```powershell
 python -m pytest app/tests/unit
@@ -56,9 +60,19 @@ Integration tests cover:
 - product search/filter/pagination
 - product category create/list/update/archive conflict behavior
 - product units API behavior
+- inventory protected route behavior
+- inventory item create/list/get/update behavior
+- duplicate inventory item rejection
+- product ownership enforcement for inventory
+- stock movements updating balances through the ledger
+- insufficient stock rejection
+- low-stock endpoint behavior
+- inventory summary counts
 
 Auth and User Profile API tests use a deterministic fake repository through
-FastAPI dependency overrides. They do not touch production services.
+FastAPI dependency overrides. Product and Inventory API tests use deterministic
+fake repositories through the same override pattern. They do not touch
+production services.
 
 ```powershell
 python -m pytest app/tests/integration
@@ -82,9 +96,16 @@ Run product catalog tests only:
 python -m pytest app/tests/unit/test_products.py app/tests/integration/test_products_api.py
 ```
 
+Run inventory tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_inventory.py app/tests/integration/test_inventory_api.py
+```
+
 Protected route tests register a user through the Auth API, use the returned
-Bearer access token for Users and Products routes, and reuse fake repositories
-to verify profile, password, and catalog state transitions.
+Bearer access token for Users, Products, and Inventory routes, and reuse fake
+repositories to verify profile, password, catalog, and inventory state
+transitions.
 
 ## DB-Dependent Test Flow
 
@@ -110,7 +131,7 @@ python -m pytest
 ```
 
 The completed-module regression suite currently covers Foundation, Auth &
-Identity, User Profile, and Product Catalog.
+Identity, User Profile, Product Catalog, and Inventory.
 
 ## Future E2E Plan
 

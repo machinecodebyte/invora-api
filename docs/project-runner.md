@@ -88,7 +88,9 @@ alembic current
 The Auth migration creates `users` and `auth_refresh_tokens`. The User Profile
 migration adds safe nullable profile fields to `users`. The Product Catalog
 migration creates `product_categories` and `products` with user-scoped unique
-category names and SKUs.
+category names and SKUs. The Inventory migration creates `inventory_items` and
+`inventory_stock_movements` so stock changes are tracked through a movement
+ledger.
 
 ## 6. Start FastAPI
 
@@ -158,4 +160,24 @@ Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <token>" } `
   -ContentType "application/json" `
   -Body '{"name":"Milk","sku":"milk-1","unit":"liter","selling_price":"12.50"}'
+```
+
+Use the returned product id to verify Inventory APIs. Thresholds can be patched
+on the inventory item, but stock quantities must be changed through movement
+ledger calls:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/inventory/items `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  -ContentType "application/json" `
+  -Body '{"product_id":"<product_id>","opening_stock":"10.000","minimum_stock":"5.000"}'
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/inventory/movements `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  -ContentType "application/json" `
+  -Body '{"product_id":"<product_id>","movement_type":"stock_in","quantity":"2.000"}'
 ```

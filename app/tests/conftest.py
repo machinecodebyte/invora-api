@@ -103,6 +103,37 @@ class FakeProduct:
     updated_at: datetime
 
 
+@dataclass(slots=True)
+class FakeInventoryItem:
+    id: UUID
+    user_id: UUID
+    product_id: UUID
+    product: FakeProduct
+    current_stock: Decimal
+    minimum_stock: Decimal
+    safety_stock: Decimal
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(slots=True)
+class FakeStockMovement:
+    id: UUID
+    user_id: UUID
+    product_id: UUID
+    inventory_item_id: UUID
+    movement_type: str
+    quantity_delta: Decimal
+    quantity_before: Decimal
+    quantity_after: Decimal
+    reason: str | None
+    reference_type: str | None
+    reference_id: str | None
+    occurred_at: datetime
+    created_at: datetime
+
+
 class FakeAuthRepository:
     def __init__(self) -> None:
         self.users_by_email: dict[str, FakeUser] = {}
@@ -515,6 +546,282 @@ class FakeProductRepository:
         return None
 
 
+class FakeInventoryRepository:
+    def __init__(self, product_repository: FakeProductRepository) -> None:
+        self.product_repository = product_repository
+        self.items_by_id: dict[UUID, FakeInventoryItem] = {}
+        self.movements_by_id: dict[UUID, FakeStockMovement] = {}
+
+    async def get_product_for_user(
+        self,
+        *,
+        user_id: UUID,
+        product_id: UUID,
+    ) -> FakeProduct | None:
+        return await self.product_repository.get_product_by_id_for_user(
+            user_id=user_id,
+            product_id=product_id,
+        )
+
+    async def create_inventory_item(
+        self,
+        *,
+        user_id: UUID,
+        product_id: UUID,
+        values: dict[str, object],
+    ) -> FakeInventoryItem:
+        from app.modules.inventory.domain.exceptions import (
+            InventoryItemAlreadyExistsError,
+        )
+        from app.shared.utils import utc_now
+
+        if await self.get_inventory_item_by_product_for_user(
+            user_id=user_id,
+            product_id=product_id,
+        ):
+            raise InventoryItemAlreadyExistsError()
+
+        product = await self.get_product_for_user(
+            user_id=user_id,
+            product_id=product_id,
+        )
+        now = utc_now()
+        item = FakeInventoryItem(
+            id=uuid4(),
+            user_id=user_id,
+            product_id=product_id,
+            product=product,
+            current_stock=_decimal_value(values.get("current_stock", "0")),
+            minimum_stock=_decimal_value(values.get("minimum_stock", "0")),
+            safety_stock=_decimal_value(values.get("safety_stock", "0")),
+            is_active=bool(values.get("is_active", True)),
+            created_at=now,
+            updated_at=now,
+        )
+        self.items_by_id[item.id] = item
+        return item
+
+    async def get_inventory_item_by_product_for_user(
+        self,
+        *,
+        user_id: UUID,
+        product_id: UUID,
+        for_update: bool = False,
+    ) -> FakeInventoryItem | None:
+        _ = for_update
+        for item in self.items_by_id.values():
+            if item.user_id == user_id and item.product_id == product_id:
+                return item
+        return None
+
+    async def list_inventory_items_for_user(
+        self,
+        *,
+        user_id: UUID,
+        search: str | None,
+        product_id: UUID | None,
+        category_id: UUID | None,
+        is_active: bool | None,
+        stock_status: str | None,
+        limit: int,
+        offset: int,
+        sort_by: str,
+        sort_order: str,
+    ) -> tuple[list[FakeInventoryItem], int]:
+        from app.modules.inventory.domain.stock import calculate_stock_status
+
+        items = [item for item in self.items_by_id.values() if item.user_id == user_id]
+        if search:
+            search_value = search.strip().casefold()
+            items = [
+                item
+                for item in items
+                if search_value in item.product.name.casefold()
+                or search_value in item.product.normalized_sku.casefold()
+            ]
+        if product_id is not None:
+            items = [item for item in items if item.product_id == product_id]
+        if category_id is not None:
+            items = [
+                item for item in items if item.product.category_id == category_id
+            ]
+        if is_active is not None:
+            items = [item for item in items if item.is_active == is_active]
+        if stock_status is not None:
+            items = [
+                item
+                for item in items
+                if calculate_stock_status(
+                    current_stock=item.current_stock,
+                    minimum_stock=item.minimum_stock,
+                    is_active=item.is_active,
+                )
+                == stock_status
+            ]
+
+        total = len(items)
+        items.sort(
+            key=lambda item: _inventory_item_sort_value(item, sort_by),
+            reverse=sort_order == "desc",
+        )
+        return items[offset : offset + limit], total
+
+    async def update_inventory_item(
+        self,
+        item: FakeInventoryItem,
+        values: dict[str, object],
+    ) -> FakeInventoryItem:
+        from app.shared.utils import utc_now
+
+        for field, value in values.items():
+            setattr(item, field, _decimal_value(value) if "stock" in field else value)
+        item.updated_at = utc_now()
+        return item
+
+    async def create_stock_movement(
+        self,
+        *,
+        user_id: UUID,
+        product_id: UUID,
+        inventory_item_id: UUID,
+        values: dict[str, object],
+    ) -> FakeStockMovement:
+        from app.shared.utils import utc_now
+
+        movement = FakeStockMovement(
+            id=uuid4(),
+            user_id=user_id,
+            product_id=product_id,
+            inventory_item_id=inventory_item_id,
+            movement_type=str(values["movement_type"]),
+            quantity_delta=_decimal_value(values["quantity_delta"]),
+            quantity_before=_decimal_value(values["quantity_before"]),
+            quantity_after=_decimal_value(values["quantity_after"]),
+            reason=values.get("reason"),
+            reference_type=values.get("reference_type"),
+            reference_id=values.get("reference_id"),
+            occurred_at=values.get("occurred_at") or utc_now(),
+            created_at=utc_now(),
+        )
+        self.movements_by_id[movement.id] = movement
+        return movement
+
+    async def list_stock_movements_for_user(
+        self,
+        *,
+        user_id: UUID,
+        product_id: UUID | None,
+        movement_type: str | None,
+        date_from: datetime | None,
+        date_to: datetime | None,
+        limit: int,
+        offset: int,
+        sort_by: str,
+        sort_order: str,
+    ) -> tuple[list[FakeStockMovement], int]:
+        movements = [
+            movement
+            for movement in self.movements_by_id.values()
+            if movement.user_id == user_id
+        ]
+        if product_id is not None:
+            movements = [
+                movement
+                for movement in movements
+                if movement.product_id == product_id
+            ]
+        if movement_type is not None:
+            movements = [
+                movement
+                for movement in movements
+                if movement.movement_type == movement_type
+            ]
+        if date_from is not None:
+            movements = [
+                movement
+                for movement in movements
+                if movement.occurred_at >= date_from
+            ]
+        if date_to is not None:
+            movements = [
+                movement for movement in movements if movement.occurred_at <= date_to
+            ]
+
+        total = len(movements)
+        movements.sort(
+            key=lambda movement: getattr(movement, sort_by),
+            reverse=sort_order == "desc",
+        )
+        return movements[offset : offset + limit], total
+
+    async def list_low_stock_items_for_user(
+        self,
+        *,
+        user_id: UUID,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[FakeInventoryItem], int]:
+        items = [
+            item
+            for item in self.items_by_id.values()
+            if item.user_id == user_id
+            and item.is_active
+            and item.current_stock <= item.minimum_stock
+        ]
+        total = len(items)
+        items.sort(key=lambda item: item.current_stock)
+        return items[offset : offset + limit], total
+
+    async def get_inventory_summary_for_user(
+        self,
+        *,
+        user_id: UUID,
+    ) -> dict[str, object]:
+        items = [item for item in self.items_by_id.values() if item.user_id == user_id]
+        movements = [
+            movement
+            for movement in self.movements_by_id.values()
+            if movement.user_id == user_id
+        ]
+        return {
+            "total_inventory_items": len(items),
+            "total_products_tracked": len({item.product_id for item in items}),
+            "low_stock_count": await self.count_low_stock_for_user(user_id=user_id),
+            "out_of_stock_count": await self.count_out_of_stock_for_user(
+                user_id=user_id,
+            ),
+            "total_stock_quantity": sum(
+                (item.current_stock for item in items),
+                Decimal("0.000"),
+            ),
+            "recent_movement_count": len(movements),
+        }
+
+    async def count_low_stock_for_user(self, *, user_id: UUID) -> int:
+        return sum(
+            1
+            for item in self.items_by_id.values()
+            if item.user_id == user_id
+            and item.is_active
+            and item.current_stock <= item.minimum_stock
+        )
+
+    async def count_out_of_stock_for_user(self, *, user_id: UUID) -> int:
+        return sum(
+            1
+            for item in self.items_by_id.values()
+            if item.user_id == user_id
+            and item.is_active
+            and item.current_stock == Decimal("0.000")
+        )
+
+    async def commit(self) -> None:
+        return None
+
+    async def rollback(self) -> None:
+        return None
+
+
 def _product_sort_value(product: FakeProduct, sort_by: str) -> object:
     if sort_by == "name":
         return product.normalized_name
@@ -529,6 +836,20 @@ def _category_sort_value(category: FakeProductCategory, sort_by: str) -> object:
     return getattr(category, sort_by)
 
 
+def _inventory_item_sort_value(item: FakeInventoryItem, sort_by: str) -> object:
+    if sort_by == "product_name":
+        return item.product.normalized_name
+    if sort_by == "sku":
+        return item.product.normalized_sku
+    return getattr(item, sort_by)
+
+
+def _decimal_value(value: object) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    return Decimal(str(value))
+
+
 @pytest.fixture
 def auth_repository() -> FakeAuthRepository:
     return FakeAuthRepository()
@@ -537,6 +858,11 @@ def auth_repository() -> FakeAuthRepository:
 @pytest.fixture
 def product_repository() -> FakeProductRepository:
     return FakeProductRepository()
+
+
+@pytest.fixture
+def inventory_repository(product_repository) -> FakeInventoryRepository:
+    return FakeInventoryRepository(product_repository=product_repository)
 
 
 @pytest.fixture
@@ -556,6 +882,47 @@ async def auth_client(app, auth_repository) -> AsyncGenerator[AsyncClient, None]
 
     app.dependency_overrides[get_auth_service] = override_auth_service
     app.dependency_overrides[get_user_profile_service] = override_user_profile_service
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    app.dependency_overrides.clear()
+    await close_database_engine()
+
+
+@pytest.fixture
+async def inventory_client(
+    app,
+    auth_repository,
+    product_repository,
+    inventory_repository,
+) -> AsyncGenerator[AsyncClient, None]:
+    from app.core.config import get_settings
+    from app.db.session import close_database_engine
+    from app.modules.auth.api.dependencies import get_auth_service
+    from app.modules.auth.application.service import AuthService
+    from app.modules.inventory.api.dependencies import get_inventory_service
+    from app.modules.inventory.application.service import InventoryService
+    from app.modules.products.api.dependencies import get_product_service
+    from app.modules.products.application.service import ProductService
+    from app.modules.users.api.dependencies import get_user_profile_service
+    from app.modules.users.application.service import UserProfileService
+
+    async def override_auth_service() -> AuthService:
+        return AuthService(repository=auth_repository, settings=get_settings())
+
+    async def override_user_profile_service() -> UserProfileService:
+        return UserProfileService(repository=auth_repository)
+
+    async def override_product_service() -> ProductService:
+        return ProductService(repository=product_repository)
+
+    async def override_inventory_service() -> InventoryService:
+        return InventoryService(repository=inventory_repository)
+
+    app.dependency_overrides[get_auth_service] = override_auth_service
+    app.dependency_overrides[get_user_profile_service] = override_user_profile_service
+    app.dependency_overrides[get_product_service] = override_product_service
+    app.dependency_overrides[get_inventory_service] = override_inventory_service
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

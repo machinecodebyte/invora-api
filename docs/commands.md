@@ -94,6 +94,12 @@ Run product catalog tests only:
 python -m pytest app/tests/unit/test_products.py app/tests/integration/test_products_api.py
 ```
 
+Run inventory tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_inventory.py app/tests/integration/test_inventory_api.py
+```
+
 Run health tests:
 
 ```powershell
@@ -143,6 +149,24 @@ Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <access_token>" } `
   -ContentType "application/json" `
   -Body '{"name":"Milk","sku":"milk-1","unit":"liter","selling_price":"12.50"}'
+```
+
+Manual inventory API check:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/inventory/items `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  -ContentType "application/json" `
+  -Body '{"product_id":"<product_id>","opening_stock":"10.000","minimum_stock":"5.000","safety_stock":"2.000"}'
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/inventory/movements `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  -ContentType "application/json" `
+  -Body '{"product_id":"<product_id>","movement_type":"stock_out","quantity":"1.000","reason":"Manual sale"}'
 ```
 
 Browser URLs:
