@@ -2,9 +2,9 @@
 
 | Module | Status | Notes |
 | --- | --- | --- |
-| Foundation Module | Completed | FastAPI app, config, logging, exceptions, health APIs, async DB, Alembic, Docker services, tests, docs |
-| Auth Module | Pending | Recommended next module |
-| User Profile Module | Pending | Build after auth basics |
+| Foundation Module | Completed | FastAPI app, config, logging, exceptions, health APIs, async DB, Alembic, isolated Docker services, tests, docs |
+| Auth & Identity Module | Completed | Register, login, `/me`, refresh-token rotation, logout, user and refresh-token migrations |
+| User Profile Module | Pending | Recommended next module |
 | Products Module | Pending | Requires product domain model and APIs |
 | Inventory Module | Pending | Requires product references and stock movement rules |
 | Sales Upload Module | Pending | Requires CSV validation and storage design |

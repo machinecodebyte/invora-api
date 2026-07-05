@@ -1,9 +1,18 @@
-# AI-Based Demand Forecasting and Inventory Reorder Recommendation System
+# Invora
 
-This repository currently contains the backend foundation for a modular monolith
-FastAPI application. It is prepared for future modules such as auth, products,
-inventory, sales upload, forecasting, recommendations, dashboard analytics, and
-reports.
+Predict - Optimize - Replenish
+
+Invora is an AI-based demand forecasting and inventory reorder recommendation
+system for an MCA final-year capstone. This backend is a modular monolith built
+with FastAPI and async SQLAlchemy.
+
+## Implemented Modules
+
+- Backend Foundation Module
+- Auth & Identity Module
+
+Pending modules include User Profile, Products, Inventory, Sales Upload,
+Forecasting, Recommendations, Dashboard, Reports, Background Jobs, and Settings.
 
 ## Current Scope
 
@@ -14,13 +23,14 @@ Implemented now:
 - Structured JSON request logging
 - Global exception handlers
 - Health and readiness APIs
-- Async SQLAlchemy 2.x session setup for PostgreSQL
-- Alembic async migration setup
-- Docker Compose services for PostgreSQL and Redis
+- User registration, login, `/me`, refresh-token rotation, and logout
+- PBKDF2-HMAC password hashing
+- HS256 access tokens and hashed refresh-token persistence
+- Async SQLAlchemy 2.x setup for PostgreSQL
+- Alembic migrations for foundation and auth tables
+- Docker Compose services for PostgreSQL and Redis with configurable host ports
 - Pytest and Ruff setup
-- Documentation for local running, testing, architecture, and commands
-
-Business features are intentionally not implemented yet.
+- Swagger/OpenAPI documentation notes
 
 ## Tech Stack
 
@@ -44,7 +54,30 @@ python -m venv .venv
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 Copy-Item .env.example .env
-docker compose up -d postgres redis
+```
+
+Check whether default service ports are already busy:
+
+```powershell
+Get-NetTCPConnection -LocalPort 5432 -ErrorAction SilentlyContinue
+Get-NetTCPConnection -LocalPort 56379 -ErrorAction SilentlyContinue
+docker ps
+```
+
+Current safe local defaults use PostgreSQL host port `5432` and Redis host port
+`56379`. If needed, set different host ports in `.env`:
+
+```text
+POSTGRES_HOST_PORT=5433
+REDIS_HOST_PORT=56380
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/invora
+REDIS_URL=redis://localhost:56380/0
+```
+
+Then run:
+
+```powershell
+docker compose up -d invora-postgres invora-redis
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
@@ -56,6 +89,12 @@ Invoke-RestMethod http://127.0.0.1:8000/api/v1/health
 Invoke-RestMethod http://127.0.0.1:8000/api/v1/health/ready
 ```
 
+Swagger UI is available at:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
 ## Documentation
 
 - [Docs overview](docs/README.md)
@@ -63,10 +102,10 @@ Invoke-RestMethod http://127.0.0.1:8000/api/v1/health/ready
 - [Commands](docs/commands.md)
 - [Testing](docs/testing.md)
 - [Architecture](docs/architecture.md)
+- [Swagger/OpenAPI](docs/swagger.md)
 - [Progress](docs/progress.md)
 
 ## Next Recommended Module
 
-Build the Auth Module next, followed by the Users/Profile module. Auth should
-establish identity, password handling, token creation, and protected route
-patterns before product or inventory features depend on user context.
+Build the User Profile Module next so authenticated users can manage profile
+data before product and inventory workflows depend on user context.

@@ -4,6 +4,7 @@ from app.core.config import get_settings
 def test_config_loads_required_settings(monkeypatch) -> None:
     get_settings.cache_clear()
     monkeypatch.setenv("APP_NAME", "Invora Backend Test")
+    monkeypatch.setenv("APP_TAGLINE", "Predict - Optimize - Replenish")
     monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.setenv("DEBUG", "false")
     monkeypatch.setenv("API_V1_PREFIX", "/api/v1/")
@@ -16,12 +17,15 @@ def test_config_loads_required_settings(monkeypatch) -> None:
     monkeypatch.setenv("LOG_LEVEL", "info")
     monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-key-for-foundation")
     monkeypatch.setenv("ACCESS_TOKEN_EXPIRE_MINUTES", "45")
+    monkeypatch.setenv("REFRESH_TOKEN_EXPIRE_DAYS", "7")
 
     settings = get_settings()
 
     assert settings.APP_NAME == "Invora Backend Test"
+    assert settings.APP_TAGLINE == "Predict - Optimize - Replenish"
     assert settings.API_V1_PREFIX == "/api/v1"
     assert settings.LOG_LEVEL == "INFO"
+    assert settings.REFRESH_TOKEN_EXPIRE_DAYS == 7
     assert settings.cors_origin_list == [
         "http://localhost:3000",
         "http://localhost:5173",

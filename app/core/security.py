@@ -1,5 +1,5 @@
 JWT_ALGORITHM = "HS256"
-PASSWORD_HASHING_ALGORITHM = "bcrypt"
+PASSWORD_HASHING_ALGORITHM = "pbkdf2_sha256"
 
 
 def mask_secret(value: str | None) -> str:

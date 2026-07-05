@@ -1,5 +1,7 @@
+name: invora
+
 services:
-  postgres:
+  invora-postgres:
     image: postgres:16-alpine
     container_name: invora-postgres
     environment:
@@ -7,22 +9,26 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - invora-postgres-data:/var/lib/postgresql/data
+    networks:
+      - invora-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d invora"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  redis:
+  invora-redis:
     image: redis:7-alpine
     container_name: invora-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-56379}:6379"
     volumes:
-      - redis_data:/data
+      - invora-redis-data:/data
+    networks:
+      - invora-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -30,5 +36,12 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
-  redis_data:
+  invora-postgres-data:
+    name: invora-postgres-data
+  invora-redis-data:
+    name: invora-redis-data
+
+networks:
+  invora-network:
+    name: invora-network
+    driver: bridge

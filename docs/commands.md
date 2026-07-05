@@ -17,22 +17,42 @@ python -m pip install -e ".[dev]"
 Copy-Item .env.example .env
 ```
 
+## Port Checks
+
+```powershell
+Get-NetTCPConnection -LocalPort 5432 -ErrorAction SilentlyContinue
+Get-NetTCPConnection -LocalPort 56379 -ErrorAction SilentlyContinue
+docker ps
+```
+
+Current safe local defaults use `POSTGRES_HOST_PORT=5432` and
+`REDIS_HOST_PORT=56379`. If a port is busy, set `POSTGRES_HOST_PORT` or
+`REDIS_HOST_PORT` in `.env` and update local `DATABASE_URL` or `REDIS_URL` to
+use the selected host port.
+
 ## Docker Compose
 
 ```powershell
-docker compose up -d postgres redis
+docker compose config
+docker compose up -d invora-postgres invora-redis
 docker compose ps
-docker compose logs postgres
-docker compose logs redis
+docker compose logs invora-postgres
+docker compose logs invora-redis
 docker compose down
 ```
 
-Reset local service containers and volumes:
+Invora Docker resources are isolated as:
 
-```powershell
-docker compose down -v
-docker compose up -d postgres redis
+```text
+project: invora
+services: invora-postgres, invora-redis
+containers: invora-postgres, invora-redis
+network: invora-network
+volumes: invora-postgres-data, invora-redis-data
 ```
+
+Do not use `docker compose down -v`, `docker volume rm`, `docker system prune`,
+or forced container removal unless you explicitly intend to remove local data.
 
 ## Run Server
 
@@ -43,6 +63,7 @@ uvicorn app.main:app --reload
 ## Alembic
 
 ```powershell
+alembic heads
 alembic current
 alembic upgrade head
 alembic revision --autogenerate -m "describe change"
@@ -55,7 +76,13 @@ alembic downgrade -1
 python -m pytest
 ```
 
-Run one test file:
+Run auth tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_auth_passwords.py app/tests/unit/test_auth_tokens.py app/tests/unit/test_auth_service.py app/tests/integration/test_auth_api.py
+```
+
+Run health tests:
 
 ```powershell
 python -m pytest app/tests/integration/test_health_api.py
@@ -71,4 +98,17 @@ ruff check .
 
 ```powershell
 ruff format .
+```
+
+## Swagger/OpenAPI Verification
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/openapi.json
+```
+
+Browser URLs:
+
+```text
+http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/redoc
 ```

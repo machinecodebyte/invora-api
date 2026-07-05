@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     APP_NAME: str = Field(..., min_length=1)
+    APP_TAGLINE: str = "Predict - Optimize - Replenish"
     APP_ENV: str = Field(..., min_length=1)
     DEBUG: bool
     API_V1_PREFIX: str = Field(..., min_length=1)
@@ -17,6 +18,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(..., min_length=1)
     JWT_SECRET_KEY: SecretStr = Field(..., min_length=16)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(..., gt=0)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=14, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",
