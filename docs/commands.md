@@ -82,6 +82,12 @@ Run auth tests only:
 python -m pytest app/tests/unit/test_auth_passwords.py app/tests/unit/test_auth_tokens.py app/tests/unit/test_auth_service.py app/tests/integration/test_auth_api.py
 ```
 
+Run user profile tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_user_profile.py app/tests/integration/test_user_profile_api.py
+```
+
 Run health tests:
 
 ```powershell
@@ -104,6 +110,15 @@ ruff format .
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/openapi.json
+```
+
+Manual protected API check:
+
+```powershell
+# Register or login, copy data.tokens.access_token, then call:
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  http://127.0.0.1:8000/api/v1/users/me
 ```
 
 Browser URLs:

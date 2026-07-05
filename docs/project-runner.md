@@ -85,7 +85,8 @@ alembic upgrade head
 alembic current
 ```
 
-The Auth migration creates `users` and `auth_refresh_tokens`.
+The Auth migration creates `users` and `auth_refresh_tokens`. The User Profile
+migration adds safe nullable profile fields to `users`.
 
 ## 6. Start FastAPI
 
@@ -130,3 +131,11 @@ Invoke-RestMethod `
 Use the returned access token as `Authorization: Bearer <token>` for
 `GET /api/v1/auth/me`. Use the refresh token with `POST /api/v1/auth/refresh`
 and `POST /api/v1/auth/logout`.
+
+Verify the User Profile APIs with the same Bearer access token:
+
+```powershell
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  http://127.0.0.1:8000/api/v1/users/me
+```

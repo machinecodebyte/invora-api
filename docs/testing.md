@@ -15,6 +15,9 @@ Unit tests cover:
 - refresh token hashing
 - duplicate email service behavior
 - invalid login service behavior
+- user profile update validation
+- current password verification
+- password hash update behavior
 
 ```powershell
 python -m pytest app/tests/unit
@@ -34,9 +37,14 @@ Integration tests cover:
 - refresh-token rotation
 - logout revocation
 - revoked refresh token reuse rejection
+- user profile protected route behavior
+- allowed profile updates
+- protected profile-field rejection
+- password change with old/new login behavior
+- refresh-token revocation after password change
 
-Auth API tests use a deterministic fake repository through FastAPI dependency
-overrides. They do not touch production services.
+Auth and User Profile API tests use a deterministic fake repository through
+FastAPI dependency overrides. They do not touch production services.
 
 ```powershell
 python -m pytest app/tests/integration
@@ -47,6 +55,16 @@ Run auth tests only:
 ```powershell
 python -m pytest app/tests/unit/test_auth_passwords.py app/tests/unit/test_auth_tokens.py app/tests/unit/test_auth_service.py app/tests/integration/test_auth_api.py
 ```
+
+Run user profile tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_user_profile.py app/tests/integration/test_user_profile_api.py
+```
+
+Protected route tests register a user through the Auth API, use the returned
+Bearer access token for Users routes, and reuse the same fake repository to
+verify profile and password state transitions.
 
 ## DB-Dependent Test Flow
 

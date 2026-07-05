@@ -1,7 +1,6 @@
 from collections.abc import AsyncGenerator
 
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
@@ -30,7 +29,7 @@ async def check_database_ready() -> bool:
         async with engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
         return True
-    except (SQLAlchemyError, OSError):
+    except Exception:
         return False
 
 

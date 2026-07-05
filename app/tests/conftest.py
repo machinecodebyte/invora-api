@@ -16,7 +16,7 @@ def pytest_configure() -> None:
     os.environ["DATABASE_URL"] = (
         "postgresql+asyncpg://postgres:postgres@localhost:5432/invora_test"
     )
-    os.environ["REDIS_URL"] = "redis://localhost:6379/1"
+    os.environ["REDIS_URL"] = "redis://localhost:56379/1"
     os.environ["CORS_ORIGINS"] = "http://localhost:3000,http://localhost:5173"
     os.environ["LOG_LEVEL"] = "WARNING"
     os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-foundation"
@@ -35,9 +35,12 @@ def app():
 
 @pytest.fixture
 async def async_client(app) -> AsyncGenerator[AsyncClient, None]:
+    from app.db.session import close_database_engine
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+    await close_database_engine()
 
 
 @dataclass(slots=True)
@@ -50,6 +53,10 @@ class FakeUser:
     is_verified: bool
     created_at: datetime
     updated_at: datetime
+    phone_number: str | None = None
+    avatar_url: str | None = None
+    timezone: str | None = None
+    locale: str | None = None
 
 
 @dataclass(slots=True)
@@ -173,6 +180,37 @@ class FakeAuthRepository:
         )
         return new_refresh_token
 
+    async def update_user_profile(
+        self,
+        user: FakeUser,
+        values: dict[str, object],
+    ) -> FakeUser:
+        from app.shared.utils import utc_now
+
+        for field, value in values.items():
+            setattr(user, field, value)
+        user.updated_at = utc_now()
+        return user
+
+    async def update_password_hash(
+        self,
+        user: FakeUser,
+        hashed_password: str,
+    ) -> FakeUser:
+        from app.shared.utils import utc_now
+
+        user.hashed_password = hashed_password
+        user.updated_at = utc_now()
+        return user
+
+    async def revoke_user_refresh_tokens(self, user_id: UUID) -> None:
+        from app.shared.utils import utc_now
+
+        revoked_at = utc_now()
+        for refresh_token in self.refresh_tokens_by_hash.values():
+            if refresh_token.user_id == user_id and refresh_token.revoked_at is None:
+                refresh_token.revoked_at = revoked_at
+
     async def commit(self) -> None:
         return None
 
@@ -188,14 +226,22 @@ def auth_repository() -> FakeAuthRepository:
 @pytest.fixture
 async def auth_client(app, auth_repository) -> AsyncGenerator[AsyncClient, None]:
     from app.core.config import get_settings
+    from app.db.session import close_database_engine
     from app.modules.auth.api.dependencies import get_auth_service
     from app.modules.auth.application.service import AuthService
+    from app.modules.users.api.dependencies import get_user_profile_service
+    from app.modules.users.application.service import UserProfileService
 
     async def override_auth_service() -> AuthService:
         return AuthService(repository=auth_repository, settings=get_settings())
 
+    async def override_user_profile_service() -> UserProfileService:
+        return UserProfileService(repository=auth_repository)
+
     app.dependency_overrides[get_auth_service] = override_auth_service
+    app.dependency_overrides[get_user_profile_service] = override_user_profile_service
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
     app.dependency_overrides.clear()
+    await close_database_engine()

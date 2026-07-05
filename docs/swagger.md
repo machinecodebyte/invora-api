@@ -21,11 +21,12 @@ OpenAPI:   http://127.0.0.1:8000/openapi.json
 Authorization: Bearer <access_token>
 ```
 
-4. Call `GET /api/v1/auth/me`.
+4. Call `GET /api/v1/auth/me` or `GET /api/v1/users/me`.
 
 ## Current API Groups
 
 - `auth`
+- `Users`
 - `health`
 
 ## Auth APIs Implemented
@@ -41,9 +42,14 @@ Authorization: Bearer <access_token>
 - `GET /api/v1/health`
 - `GET /api/v1/health/ready`
 
+## User Profile APIs Implemented
+
+- `GET /api/v1/users/me`
+- `PATCH /api/v1/users/me`
+- `POST /api/v1/users/me/change-password`
+
 ## Pending Future Modules
 
-- User Profile
 - Products
 - Inventory
 - Sales Upload and Sales Transactions
@@ -58,5 +64,6 @@ Authorization: Bearer <access_token>
 
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
-Use the refresh token only with `/auth/refresh` and `/auth/logout`; it should
-not be used as an access token.
+Protected Auth and Users routes should be tested with `Authorization: Bearer
+<access_token>`. Use the refresh token only with `/auth/refresh` and
+`/auth/logout`; it should not be used as an access token.
