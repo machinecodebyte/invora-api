@@ -21,13 +21,15 @@ OpenAPI:   http://127.0.0.1:8000/openapi.json
 Authorization: Bearer <access_token>
 ```
 
-4. Call `GET /api/v1/auth/me` or `GET /api/v1/users/me`.
+4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
+   Products endpoint.
 
 ## Current API Groups
 
+- `Health`
 - `auth`
 - `Users`
-- `health`
+- `Products`
 
 ## Auth APIs Implemented
 
@@ -48,22 +50,50 @@ Authorization: Bearer <access_token>
 - `PATCH /api/v1/users/me`
 - `POST /api/v1/users/me/change-password`
 
+## Product Catalog APIs Implemented
+
+- `POST /api/v1/products`
+- `GET /api/v1/products`
+- `GET /api/v1/products/{product_id}`
+- `PATCH /api/v1/products/{product_id}`
+- `DELETE /api/v1/products/{product_id}`
+
+Product APIs require `Authorization: Bearer <access_token>`, return only the
+current user's products, normalize SKUs, validate fixed units, support search,
+filters, pagination, and safe sort fields, and use soft archive behavior.
+Product records do not store stock quantities.
+
+## Product Category APIs Implemented
+
+- `POST /api/v1/products/categories`
+- `GET /api/v1/products/categories`
+- `PATCH /api/v1/products/categories/{category_id}`
+- `DELETE /api/v1/products/categories/{category_id}`
+
+Category names are unique per user after normalization. Category archive is
+blocked while the category has active products.
+
+## Product Units API Implemented
+
+- `GET /api/v1/products/units`
+
+Allowed units are `pcs`, `kg`, `gram`, `liter`, `ml`, `box`, `packet`, and
+`dozen`.
+
 ## Pending Future Modules
 
-- Products
 - Inventory
-- Sales Upload and Sales Transactions
+- Sales Upload
 - Forecasting
 - Recommendations
 - Dashboard
 - Reports
-- Background Jobs
 - Settings
 
 ## Manual Browser Verification
 
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
-Protected Auth and Users routes should be tested with `Authorization: Bearer
-<access_token>`. Use the refresh token only with `/auth/refresh` and
-`/auth/logout`; it should not be used as an access token.
+Protected Auth, Users, and Products routes should be tested with
+`Authorization: Bearer <access_token>`. Use the refresh token only with
+`/auth/refresh` and `/auth/logout`; it should not be used as an access token.

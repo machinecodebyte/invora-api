@@ -86,7 +86,9 @@ alembic current
 ```
 
 The Auth migration creates `users` and `auth_refresh_tokens`. The User Profile
-migration adds safe nullable profile fields to `users`.
+migration adds safe nullable profile fields to `users`. The Product Catalog
+migration creates `product_categories` and `products` with user-scoped unique
+category names and SKUs.
 
 ## 6. Start FastAPI
 
@@ -138,4 +140,22 @@ Verify the User Profile APIs with the same Bearer access token:
 Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <token>" } `
   http://127.0.0.1:8000/api/v1/users/me
+```
+
+Verify Product Catalog APIs with the same Bearer access token:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/products/categories `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  -ContentType "application/json" `
+  -Body '{"name":"Beverages"}'
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/products `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  -ContentType "application/json" `
+  -Body '{"name":"Milk","sku":"milk-1","unit":"liter","selling_price":"12.50"}'
 ```

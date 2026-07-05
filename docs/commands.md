@@ -88,6 +88,12 @@ Run user profile tests only:
 python -m pytest app/tests/unit/test_user_profile.py app/tests/integration/test_user_profile_api.py
 ```
 
+Run product catalog tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_products.py app/tests/integration/test_products_api.py
+```
+
 Run health tests:
 
 ```powershell
@@ -119,6 +125,24 @@ Manual protected API check:
 Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <access_token>" } `
   http://127.0.0.1:8000/api/v1/users/me
+```
+
+Manual product API check:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/products/categories `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  -ContentType "application/json" `
+  -Body '{"name":"Beverages"}'
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/products `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  -ContentType "application/json" `
+  -Body '{"name":"Milk","sku":"milk-1","unit":"liter","selling_price":"12.50"}'
 ```
 
 Browser URLs:

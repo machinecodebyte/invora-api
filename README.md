@@ -11,9 +11,10 @@ with FastAPI and async SQLAlchemy.
 - Backend Foundation Module
 - Auth & Identity Module
 - User Profile Module
+- Product Catalog Module
 
-Pending modules include Products, Inventory, Sales Upload, Forecasting,
-Recommendations, Dashboard, Reports, Background Jobs, and Settings.
+Pending modules include Inventory, Sales Upload, Forecasting, Recommendations,
+Dashboard, Reports, Background Jobs, and Settings.
 
 ## Current Scope
 
@@ -26,10 +27,13 @@ Implemented now:
 - Health and readiness APIs
 - User registration, login, `/me`, refresh-token rotation, and logout
 - Authenticated user profile read/update and password change
+- Authenticated product catalog CRUD with categories, fixed units, SKU
+  normalization, user ownership, filtering, search, pagination, and soft archive
 - PBKDF2-HMAC password hashing
 - HS256 access tokens and hashed refresh-token persistence
 - Async SQLAlchemy 2.x setup for PostgreSQL
-- Alembic migrations for foundation, auth, and user profile fields
+- Alembic migrations for foundation, auth, user profile fields, and product
+  catalog tables
 - Docker Compose services for PostgreSQL and Redis with configurable host ports
 - Pytest and Ruff setup
 - Swagger/OpenAPI documentation notes
@@ -113,8 +117,11 @@ http://127.0.0.1:8000/docs
 - Auth: `/api/v1/auth/register`, `/api/v1/auth/login`, `/api/v1/auth/me`,
   `/api/v1/auth/refresh`, `/api/v1/auth/logout`
 - Users: `/api/v1/users/me`, `/api/v1/users/me/change-password`
+- Products: `/api/v1/products`, `/api/v1/products/{product_id}`,
+  `/api/v1/products/categories`, `/api/v1/products/categories/{category_id}`,
+  `/api/v1/products/units`
 
 ## Next Recommended Module
 
-Build the Products Module next, then Inventory. Products give the forecasting
-and stock workflows their core catalog entity.
+Build the Inventory Module next. Product Catalog now provides the user-scoped
+catalog/master data; stock quantities belong in Inventory.

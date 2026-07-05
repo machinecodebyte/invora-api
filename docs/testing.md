@@ -18,6 +18,12 @@ Unit tests cover:
 - user profile update validation
 - current password verification
 - password hash update behavior
+- product SKU normalization
+- product category name normalization
+- product unit and price validation
+- duplicate product SKU and duplicate category behavior
+- category archive conflict with active products
+- product sort field validation
 
 ```powershell
 python -m pytest app/tests/unit
@@ -42,6 +48,14 @@ Integration tests cover:
 - protected profile-field rejection
 - password change with old/new login behavior
 - refresh-token revocation after password change
+- product protected route behavior
+- product create/list/get/update/archive behavior
+- duplicate SKU rejection per user
+- same SKU allowed for different users
+- user-scoped product access
+- product search/filter/pagination
+- product category create/list/update/archive conflict behavior
+- product units API behavior
 
 Auth and User Profile API tests use a deterministic fake repository through
 FastAPI dependency overrides. They do not touch production services.
@@ -62,9 +76,15 @@ Run user profile tests only:
 python -m pytest app/tests/unit/test_user_profile.py app/tests/integration/test_user_profile_api.py
 ```
 
+Run product catalog tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_products.py app/tests/integration/test_products_api.py
+```
+
 Protected route tests register a user through the Auth API, use the returned
-Bearer access token for Users routes, and reuse the same fake repository to
-verify profile and password state transitions.
+Bearer access token for Users and Products routes, and reuse fake repositories
+to verify profile, password, and catalog state transitions.
 
 ## DB-Dependent Test Flow
 
@@ -89,12 +109,14 @@ Run tests:
 python -m pytest
 ```
 
+The completed-module regression suite currently covers Foundation, Auth &
+Identity, User Profile, and Product Catalog.
+
 ## Future E2E Plan
 
 Once business modules exist, add E2E tests for authenticated user journeys:
-profile updates, product creation, inventory updates, sales CSV upload,
-forecast run creation, forecast result review, and reorder recommendation
-review.
+inventory updates, sales CSV upload, forecast run creation, forecast result
+review, and reorder recommendation review.
 
 ## Coverage Expectations
 
