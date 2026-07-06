@@ -22,7 +22,7 @@ Authorization: Bearer <access_token>
 ```
 
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
-   Products or Inventory endpoint.
+   Products, Inventory, or Sales Upload endpoint.
 
 ## Current API Groups
 
@@ -31,6 +31,7 @@ Authorization: Bearer <access_token>
 - `Users`
 - `Products`
 - `Inventory`
+- `Sales Upload`
 
 ## Auth APIs Implemented
 
@@ -98,9 +99,25 @@ Inventory tables. `PATCH /inventory/items/{product_id}` updates thresholds and
 active status only. Stock quantity changes must be recorded through
 `POST /inventory/movements`, which creates immutable ledger rows.
 
+## Sales Upload APIs Implemented
+
+- `POST /api/v1/sales/uploads`
+- `GET /api/v1/sales/uploads`
+- `GET /api/v1/sales/uploads/{upload_id}`
+- `GET /api/v1/sales/uploads/{upload_id}/rejected-rows`
+- `GET /api/v1/sales/uploads/template`
+
+Sales Upload APIs require `Authorization: Bearer <access_token>`. The upload
+endpoint accepts multipart CSV files with required columns `sale_date`,
+`product_sku`, and `quantity`. Optional columns are `unit_price`,
+`total_amount`, `customer_name`, `channel`, and `notes`. Accepted rows are
+stored as historical sales transactions for forecasting input. Rejected rows are
+stored with safe row-level error messages. Sales upload does not reduce
+Inventory stock.
+
 ## Pending Future Modules
 
-- Sales Upload
+- Sales Transactions
 - Forecasting
 - Recommendations
 - Dashboard
@@ -111,6 +128,7 @@ active status only. Stock quantity changes must be recorded through
 
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
-Protected Auth, Users, Products, and Inventory routes should be tested with
-`Authorization: Bearer <access_token>`. Use the refresh token only with
-`/auth/refresh` and `/auth/logout`; it should not be used as an access token.
+Protected Auth, Users, Products, Inventory, and Sales Upload routes should be
+tested with `Authorization: Bearer <access_token>`. Use the refresh token only
+with `/auth/refresh` and `/auth/logout`; it should not be used as an access
+token.

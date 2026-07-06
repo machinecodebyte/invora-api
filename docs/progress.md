@@ -7,8 +7,8 @@
 | User Profile Module | Completed | Authenticated profile read/update, password change, refresh-token revocation on password change |
 | Product Catalog Module | Completed | User-scoped product CRUD, categories, fixed units, SKU normalization, filtering, search, pagination, soft archive, tests, docs |
 | Inventory Module | Completed | User-scoped inventory balances, thresholds, movement ledger, stock in/out, adjustment, low-stock list, summary, tests, docs |
-| Sales Upload Module | Pending | Requires CSV validation and storage design |
-| Sales Transactions Module | Pending | Requires sales domain and persistence |
+| Sales Upload Module | Completed | Authenticated CSV upload, batch tracking, row validation, sales transactions, rejected rows, duplicate file detection, tests, docs |
+| Sales Transactions Module | Pending | Manual/API transaction management beyond CSV upload |
 | Forecasting Module | Pending | Requires sales data and ML workflow design |
 | Recommendations Module | Pending | Requires forecast results and inventory rules |
 | Dashboard Module | Pending | Requires aggregates from business modules |

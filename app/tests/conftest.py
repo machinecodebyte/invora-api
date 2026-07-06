@@ -1,7 +1,7 @@
 import os
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -131,6 +131,53 @@ class FakeStockMovement:
     reference_type: str | None
     reference_id: str | None
     occurred_at: datetime
+    created_at: datetime
+
+
+@dataclass(slots=True)
+class FakeSalesUploadBatch:
+    id: UUID
+    user_id: UUID
+    original_filename: str
+    file_hash: str | None
+    status: str
+    total_rows: int
+    accepted_rows: int
+    rejected_rows: int
+    started_at: datetime
+    completed_at: datetime | None
+    failure_reason: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(slots=True)
+class FakeSalesTransaction:
+    id: UUID
+    user_id: UUID
+    product_id: UUID
+    upload_batch_id: UUID | None
+    sale_date: date
+    quantity: Decimal
+    unit_price: Decimal | None
+    total_amount: Decimal | None
+    customer_name: str | None
+    channel: str | None
+    notes: str | None
+    source: str
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(slots=True)
+class FakeSalesRejectedRow:
+    id: UUID
+    user_id: UUID
+    upload_batch_id: UUID
+    row_number: int
+    raw_data: dict[str, str]
+    error_code: str
+    error_message: str
     created_at: datetime
 
 
@@ -822,6 +869,198 @@ class FakeInventoryRepository:
         return None
 
 
+class FakeSalesRepository:
+    def __init__(self, product_repository: FakeProductRepository) -> None:
+        self.product_repository = product_repository
+        self.batches_by_id: dict[UUID, FakeSalesUploadBatch] = {}
+        self.transactions_by_id: dict[UUID, FakeSalesTransaction] = {}
+        self.rejected_rows_by_id: dict[UUID, FakeSalesRejectedRow] = {}
+
+    async def create_upload_batch(
+        self,
+        *,
+        user_id: UUID,
+        values: dict[str, object],
+    ) -> FakeSalesUploadBatch:
+        from app.shared.utils import utc_now
+
+        now = utc_now()
+        batch = FakeSalesUploadBatch(
+            id=uuid4(),
+            user_id=user_id,
+            original_filename=str(values["original_filename"]),
+            file_hash=values.get("file_hash"),
+            status=str(values["status"]),
+            total_rows=int(values.get("total_rows", 0)),
+            accepted_rows=int(values.get("accepted_rows", 0)),
+            rejected_rows=int(values.get("rejected_rows", 0)),
+            started_at=values.get("started_at") or now,
+            completed_at=values.get("completed_at"),
+            failure_reason=values.get("failure_reason"),
+            created_at=now,
+            updated_at=now,
+        )
+        self.batches_by_id[batch.id] = batch
+        return batch
+
+    async def update_upload_batch_status(
+        self,
+        batch: FakeSalesUploadBatch,
+        values: dict[str, object],
+    ) -> FakeSalesUploadBatch:
+        from app.shared.utils import utc_now
+
+        for field, value in values.items():
+            setattr(batch, field, value)
+        batch.updated_at = utc_now()
+        return batch
+
+    async def create_sales_transactions_bulk(
+        self,
+        *,
+        user_id: UUID,
+        upload_batch_id: UUID,
+        rows: list[dict[str, object]],
+    ) -> list[FakeSalesTransaction]:
+        from app.shared.utils import utc_now
+
+        transactions: list[FakeSalesTransaction] = []
+        for row in rows:
+            now = utc_now()
+            transaction = FakeSalesTransaction(
+                id=uuid4(),
+                user_id=user_id,
+                product_id=row["product_id"],
+                upload_batch_id=upload_batch_id,
+                sale_date=row["sale_date"],
+                quantity=_decimal_value(row["quantity"]),
+                unit_price=(
+                    None
+                    if row.get("unit_price") is None
+                    else _decimal_value(row["unit_price"])
+                ),
+                total_amount=(
+                    None
+                    if row.get("total_amount") is None
+                    else _decimal_value(row["total_amount"])
+                ),
+                customer_name=row.get("customer_name"),
+                channel=row.get("channel"),
+                notes=row.get("notes"),
+                source=str(row["source"]),
+                created_at=now,
+                updated_at=now,
+            )
+            self.transactions_by_id[transaction.id] = transaction
+            transactions.append(transaction)
+        return transactions
+
+    async def create_rejected_rows_bulk(
+        self,
+        *,
+        user_id: UUID,
+        upload_batch_id: UUID,
+        rows: list[dict[str, object]],
+    ) -> list[FakeSalesRejectedRow]:
+        from app.shared.utils import utc_now
+
+        rejected_rows: list[FakeSalesRejectedRow] = []
+        for row in rows:
+            rejected = FakeSalesRejectedRow(
+                id=uuid4(),
+                user_id=user_id,
+                upload_batch_id=upload_batch_id,
+                row_number=int(row["row_number"]),
+                raw_data=row["raw_data"],
+                error_code=str(row["error_code"]),
+                error_message=str(row["error_message"]),
+                created_at=utc_now(),
+            )
+            self.rejected_rows_by_id[rejected.id] = rejected
+            rejected_rows.append(rejected)
+        return rejected_rows
+
+    async def list_upload_batches_for_user(
+        self,
+        *,
+        user_id: UUID,
+        status: str | None,
+        date_from: datetime | None,
+        date_to: datetime | None,
+        limit: int,
+        offset: int,
+        sort_order: str,
+    ) -> tuple[list[FakeSalesUploadBatch], int]:
+        batches = [
+            batch for batch in self.batches_by_id.values() if batch.user_id == user_id
+        ]
+        if status is not None:
+            batches = [batch for batch in batches if batch.status == status]
+        if date_from is not None:
+            batches = [batch for batch in batches if batch.started_at >= date_from]
+        if date_to is not None:
+            batches = [batch for batch in batches if batch.started_at <= date_to]
+        batches.sort(key=lambda batch: batch.started_at, reverse=sort_order == "desc")
+        total = len(batches)
+        return batches[offset : offset + limit], total
+
+    async def get_upload_batch_for_user(
+        self,
+        *,
+        user_id: UUID,
+        upload_id: UUID,
+    ) -> FakeSalesUploadBatch | None:
+        batch = self.batches_by_id.get(upload_id)
+        if batch is None or batch.user_id != user_id:
+            return None
+        return batch
+
+    async def list_rejected_rows_for_user(
+        self,
+        *,
+        user_id: UUID,
+        upload_batch_id: UUID,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[FakeSalesRejectedRow], int]:
+        rows = [
+            row
+            for row in self.rejected_rows_by_id.values()
+            if row.user_id == user_id and row.upload_batch_id == upload_batch_id
+        ]
+        rows.sort(key=lambda row: row.row_number)
+        total = len(rows)
+        return rows[offset : offset + limit], total
+
+    async def get_products_by_sku_for_user(
+        self,
+        *,
+        user_id: UUID,
+        normalized_skus: set[str],
+    ) -> dict[str, FakeProduct]:
+        products: dict[str, FakeProduct] = {}
+        for sku in normalized_skus:
+            product = await self.product_repository.get_product_by_sku_for_user(
+                user_id=user_id,
+                normalized_sku=sku,
+            )
+            if product is not None:
+                products[sku] = product
+        return products
+
+    async def file_hash_exists_for_user(self, *, user_id: UUID, file_hash: str) -> bool:
+        return any(
+            batch.user_id == user_id and batch.file_hash == file_hash
+            for batch in self.batches_by_id.values()
+        )
+
+    async def commit(self) -> None:
+        return None
+
+    async def rollback(self) -> None:
+        return None
+
+
 def _product_sort_value(product: FakeProduct, sort_by: str) -> object:
     if sort_by == "name":
         return product.normalized_name
@@ -863,6 +1102,11 @@ def product_repository() -> FakeProductRepository:
 @pytest.fixture
 def inventory_repository(product_repository) -> FakeInventoryRepository:
     return FakeInventoryRepository(product_repository=product_repository)
+
+
+@pytest.fixture
+def sales_repository(product_repository) -> FakeSalesRepository:
+    return FakeSalesRepository(product_repository=product_repository)
 
 
 @pytest.fixture
@@ -957,6 +1201,47 @@ async def product_client(
     app.dependency_overrides[get_auth_service] = override_auth_service
     app.dependency_overrides[get_user_profile_service] = override_user_profile_service
     app.dependency_overrides[get_product_service] = override_product_service
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    app.dependency_overrides.clear()
+    await close_database_engine()
+
+
+@pytest.fixture
+async def sales_client(
+    app,
+    auth_repository,
+    product_repository,
+    sales_repository,
+) -> AsyncGenerator[AsyncClient, None]:
+    from app.core.config import get_settings
+    from app.db.session import close_database_engine
+    from app.modules.auth.api.dependencies import get_auth_service
+    from app.modules.auth.application.service import AuthService
+    from app.modules.products.api.dependencies import get_product_service
+    from app.modules.products.application.service import ProductService
+    from app.modules.sales.api.dependencies import get_sales_upload_service
+    from app.modules.sales.application.service import SalesUploadService
+    from app.modules.users.api.dependencies import get_user_profile_service
+    from app.modules.users.application.service import UserProfileService
+
+    async def override_auth_service() -> AuthService:
+        return AuthService(repository=auth_repository, settings=get_settings())
+
+    async def override_user_profile_service() -> UserProfileService:
+        return UserProfileService(repository=auth_repository)
+
+    async def override_product_service() -> ProductService:
+        return ProductService(repository=product_repository)
+
+    async def override_sales_upload_service() -> SalesUploadService:
+        return SalesUploadService(repository=sales_repository)
+
+    app.dependency_overrides[get_auth_service] = override_auth_service
+    app.dependency_overrides[get_user_profile_service] = override_user_profile_service
+    app.dependency_overrides[get_product_service] = override_product_service
+    app.dependency_overrides[get_sales_upload_service] = override_sales_upload_service
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

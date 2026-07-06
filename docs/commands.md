@@ -100,6 +100,12 @@ Run inventory tests only:
 python -m pytest app/tests/unit/test_inventory.py app/tests/integration/test_inventory_api.py
 ```
 
+Run sales upload tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_sales_upload.py app/tests/integration/test_sales_upload_api.py
+```
+
 Run health tests:
 
 ```powershell
@@ -167,6 +173,20 @@ Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <access_token>" } `
   -ContentType "application/json" `
   -Body '{"product_id":"<product_id>","movement_type":"stock_out","quantity":"1.000","reason":"Manual sale"}'
+```
+
+Manual sales upload API check:
+
+```powershell
+Set-Content -LiteralPath .\sales-sample.csv -Value @"
+sale_date,product_sku,quantity,unit_price,total_amount,customer_name,channel,notes
+2026-07-01,MILK-1,2.000,12.50,,Walk-in,store,Historical sale
+"@
+
+curl.exe -X POST `
+  http://127.0.0.1:8000/api/v1/sales/uploads `
+  -H "Authorization: Bearer <access_token>" `
+  -F "file=@sales-sample.csv;type=text/csv"
 ```
 
 Browser URLs:

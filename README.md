@@ -13,9 +13,10 @@ with FastAPI and async SQLAlchemy.
 - User Profile Module
 - Product Catalog Module
 - Inventory Module
+- Sales Upload Module
 
-Pending modules include Sales Upload, Forecasting, Recommendations, Dashboard,
-Reports, Background Jobs, and Settings.
+Pending modules include Forecasting, Recommendations, Dashboard, Reports,
+Background Jobs, and Settings.
 
 ## Current Scope
 
@@ -32,11 +33,13 @@ Implemented now:
   normalization, user ownership, filtering, search, pagination, and soft archive
 - Authenticated inventory balances, thresholds, low-stock views, summary, and
   immutable stock movement ledger for stock changes
+- Authenticated sales CSV upload with batch tracking, row-level validation,
+  accepted sales transactions, rejected rows, and duplicate file protection
 - PBKDF2-HMAC password hashing
 - HS256 access tokens and hashed refresh-token persistence
 - Async SQLAlchemy 2.x setup for PostgreSQL
 - Alembic migrations for foundation, auth, user profile fields, product catalog
-  tables, and inventory tables
+  tables, inventory tables, and sales upload tables
 - Docker Compose services for PostgreSQL and Redis with configurable host ports
 - Pytest and Ruff setup
 - Swagger/OpenAPI documentation notes
@@ -126,9 +129,12 @@ http://127.0.0.1:8000/docs
 - Inventory: `/api/v1/inventory/items`,
   `/api/v1/inventory/items/{product_id}`, `/api/v1/inventory/movements`,
   `/api/v1/inventory/low-stock`, `/api/v1/inventory/summary`
+- Sales Upload: `/api/v1/sales/uploads`,
+  `/api/v1/sales/uploads/{upload_id}`,
+  `/api/v1/sales/uploads/{upload_id}/rejected-rows`,
+  `/api/v1/sales/uploads/template`
 
 ## Next Recommended Module
 
-Build the Sales Upload Module next. Inventory now owns stock quantities through
-movement-ledger updates, which gives Sales Upload a clean stock-out integration
-point.
+Build the Forecasting Module next. Sales Upload now provides clean historical
+demand data in `sales_transactions` without reducing inventory stock.

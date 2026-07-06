@@ -28,6 +28,11 @@ Unit tests cover:
 - inventory negative stock prevention
 - inventory low-stock and out-of-stock status calculations
 - inventory threshold, movement type, and sort field validation
+- sales upload required-column validation
+- sales upload SKU/date/quantity/price validation
+- sales upload total amount calculation
+- sales upload status and safe filename handling
+- sales upload row rejection reasons
 
 ```powershell
 python -m pytest app/tests/unit
@@ -68,11 +73,19 @@ Integration tests cover:
 - insufficient stock rejection
 - low-stock endpoint behavior
 - inventory summary counts
+- sales upload protected route behavior
+- sales CSV upload success and missing-column rejection
+- mixed valid/invalid sales row persistence
+- unknown SKU row rejection
+- user-scoped sales upload access
+- rejected rows listing
+- sales upload template behavior
+- sales upload does not reduce inventory stock
 
 Auth and User Profile API tests use a deterministic fake repository through
-FastAPI dependency overrides. Product and Inventory API tests use deterministic
-fake repositories through the same override pattern. They do not touch
-production services.
+FastAPI dependency overrides. Product, Inventory, and Sales Upload API tests use
+deterministic fake repositories through the same override pattern. They do not
+touch production services.
 
 ```powershell
 python -m pytest app/tests/integration
@@ -102,10 +115,16 @@ Run inventory tests only:
 python -m pytest app/tests/unit/test_inventory.py app/tests/integration/test_inventory_api.py
 ```
 
+Run sales upload tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_sales_upload.py app/tests/integration/test_sales_upload_api.py
+```
+
 Protected route tests register a user through the Auth API, use the returned
-Bearer access token for Users, Products, and Inventory routes, and reuse fake
-repositories to verify profile, password, catalog, and inventory state
-transitions.
+Bearer access token for Users, Products, Inventory, and Sales Upload routes,
+and reuse fake repositories to verify profile, password, catalog, inventory,
+and sales upload state transitions.
 
 ## DB-Dependent Test Flow
 
@@ -131,7 +150,7 @@ python -m pytest
 ```
 
 The completed-module regression suite currently covers Foundation, Auth &
-Identity, User Profile, Product Catalog, and Inventory.
+Identity, User Profile, Product Catalog, Inventory, and Sales Upload.
 
 ## Future E2E Plan
 
