@@ -106,6 +106,12 @@ Run sales upload tests only:
 python -m pytest app/tests/unit/test_sales_upload.py app/tests/integration/test_sales_upload_api.py
 ```
 
+Run sales transaction tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_sales_transactions.py app/tests/integration/test_sales_transactions_api.py
+```
+
 Run health tests:
 
 ```powershell
@@ -187,6 +193,25 @@ curl.exe -X POST `
   http://127.0.0.1:8000/api/v1/sales/uploads `
   -H "Authorization: Bearer <access_token>" `
   -F "file=@sales-sample.csv;type=text/csv"
+```
+
+Manual sales transaction API check:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/sales/transactions `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  -ContentType "application/json" `
+  -Body '{"product_id":"<product_id>","sale_date":"2026-07-01","quantity":"2.000","unit_price":"12.50","channel":"store"}'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/sales/transactions/summary'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/sales/transactions/trends?interval=day'
 ```
 
 Browser URLs:

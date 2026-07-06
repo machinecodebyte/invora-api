@@ -91,7 +91,9 @@ migration creates `product_categories` and `products` with user-scoped unique
 category names and SKUs. The Inventory migration creates `inventory_items` and
 `inventory_stock_movements` so stock changes are tracked through a movement
 ledger. The Sales Upload migration creates upload batches, sales transactions,
-and rejected row tables for historical demand ingestion.
+and rejected row tables for historical demand ingestion. The Sales Transactions
+migration adds soft-delete fields and query indexes to the existing
+`sales_transactions` table.
 
 ## 6. Start FastAPI
 
@@ -196,4 +198,20 @@ curl.exe -X POST `
   http://127.0.0.1:8000/api/v1/sales/uploads `
   -H "Authorization: Bearer <token>" `
   -F "file=@sales-sample.csv;type=text/csv"
+```
+
+Verify Sales Transactions with the same Bearer access token. This manages and
+aggregates cleaned demand rows only; it does not reduce inventory stock:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/sales/transactions `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  -ContentType "application/json" `
+  -Body '{"product_id":"<product_id>","sale_date":"2026-07-01","quantity":"2.000","unit_price":"12.50","channel":"store"}'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  http://127.0.0.1:8000/api/v1/sales/transactions/summary
 ```

@@ -10,6 +10,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -67,6 +68,15 @@ class SalesUploadBatchModel(Base):
 
 class SalesTransactionModel(Base):
     __tablename__ = "sales_transactions"
+    __table_args__ = (
+        Index("ix_sales_transactions_user_sale_date", "user_id", "sale_date"),
+        Index(
+            "ix_sales_transactions_user_product_sale_date",
+            "user_id",
+            "product_id",
+            "sale_date",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
@@ -96,7 +106,12 @@ class SalesTransactionModel(Base):
     customer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     channel: Mapped[str | None] = mapped_column(String(64), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    source: Mapped[str] = mapped_column(String(32), default="csv_upload")
+    source: Mapped[str] = mapped_column(String(32), default="csv_upload", index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    deleted_reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,

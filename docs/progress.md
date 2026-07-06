@@ -8,8 +8,8 @@
 | Product Catalog Module | Completed | User-scoped product CRUD, categories, fixed units, SKU normalization, filtering, search, pagination, soft archive, tests, docs |
 | Inventory Module | Completed | User-scoped inventory balances, thresholds, movement ledger, stock in/out, adjustment, low-stock list, summary, tests, docs |
 | Sales Upload Module | Completed | Authenticated CSV upload, batch tracking, row validation, sales transactions, rejected rows, duplicate file detection, tests, docs |
-| Sales Transactions Module | Pending | Manual/API transaction management beyond CSV upload |
-| Forecasting Module | Pending | Requires sales data and ML workflow design |
+| Sales Transactions Module | Completed | Manual transaction CRUD, soft delete, filters, summaries, trends, product-wise aggregates, tests, docs |
+| Forecasting Module | Pending | Requires sales transaction data and ML workflow design |
 | Recommendations Module | Pending | Requires forecast results and inventory rules |
 | Dashboard Module | Pending | Requires aggregates from business modules |
 | Reports Module | Pending | Requires export/reporting requirements |

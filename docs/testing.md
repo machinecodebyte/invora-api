@@ -33,6 +33,9 @@ Unit tests cover:
 - sales upload total amount calculation
 - sales upload status and safe filename handling
 - sales upload row rejection reasons
+- sales transaction date, quantity, price, amount, source, date range, and sort
+  validation
+- sales transaction protected field rejection and update amount recalculation
 
 ```powershell
 python -m pytest app/tests/unit
@@ -81,6 +84,13 @@ Integration tests cover:
 - rejected rows listing
 - sales upload template behavior
 - sales upload does not reduce inventory stock
+- sales transaction protected route behavior
+- manual sales transaction create/list/detail/update/soft-delete behavior
+- sales transaction ownership enforcement
+- sales transaction product, date range, and source filters
+- sales transaction summary, trends, and by-product aggregates
+- CSV-upload-created rows appearing in Sales Transactions queries
+- sales transaction create does not reduce inventory stock
 
 Auth and User Profile API tests use a deterministic fake repository through
 FastAPI dependency overrides. Product, Inventory, and Sales Upload API tests use
@@ -121,10 +131,16 @@ Run sales upload tests only:
 python -m pytest app/tests/unit/test_sales_upload.py app/tests/integration/test_sales_upload_api.py
 ```
 
+Run sales transaction tests only:
+
+```powershell
+python -m pytest app/tests/unit/test_sales_transactions.py app/tests/integration/test_sales_transactions_api.py
+```
+
 Protected route tests register a user through the Auth API, use the returned
-Bearer access token for Users, Products, Inventory, and Sales Upload routes,
-and reuse fake repositories to verify profile, password, catalog, inventory,
-and sales upload state transitions.
+Bearer access token for Users, Products, Inventory, Sales Upload, and Sales
+Transactions routes, and reuse fake repositories to verify profile, password,
+catalog, inventory, sales upload, and sales transaction state transitions.
 
 ## DB-Dependent Test Flow
 
@@ -150,13 +166,14 @@ python -m pytest
 ```
 
 The completed-module regression suite currently covers Foundation, Auth &
-Identity, User Profile, Product Catalog, Inventory, and Sales Upload.
+Identity, User Profile, Product Catalog, Inventory, Sales Upload, and Sales
+Transactions.
 
 ## Future E2E Plan
 
 Once business modules exist, add E2E tests for authenticated user journeys:
-inventory updates, sales CSV upload, forecast run creation, forecast result
-review, and reorder recommendation review.
+inventory updates, sales CSV upload, sales transaction review, forecast run
+creation, forecast result review, and reorder recommendation review.
 
 ## Coverage Expectations
 

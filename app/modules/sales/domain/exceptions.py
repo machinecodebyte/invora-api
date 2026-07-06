@@ -53,3 +53,87 @@ class SalesUploadNotFoundError(AppError):
             code="sales_upload_not_found",
             status_code=404,
         )
+
+
+class SalesTransactionNotFoundError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Sales transaction was not found.",
+            code="sales_transaction_not_found",
+            status_code=404,
+        )
+
+
+class SalesTransactionProductNotFoundError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Product was not found.",
+            code="sales_transaction_product_not_found",
+            status_code=404,
+        )
+
+
+class InvalidSalesTransactionFieldError(AppError):
+    def __init__(
+        self,
+        message: str = "Sales transaction field is invalid.",
+    ) -> None:
+        super().__init__(
+            message,
+            code="invalid_sales_transaction_field",
+            status_code=400,
+        )
+
+
+class InvalidSalesTransactionQuantityError(AppError):
+    def __init__(self, message: str = "Sales transaction quantity is invalid.") -> None:
+        super().__init__(
+            message,
+            code="invalid_sales_transaction_quantity",
+            status_code=400,
+        )
+
+
+class InvalidSalesTransactionPriceError(AppError):
+    def __init__(self, message: str = "Sales transaction price is invalid.") -> None:
+        super().__init__(
+            message,
+            code="invalid_sales_transaction_price",
+            status_code=400,
+        )
+
+
+class InvalidSalesTransactionDateRangeError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Sales transaction date range is invalid.",
+            code="invalid_sales_transaction_date_range",
+            status_code=400,
+        )
+
+
+class InvalidSalesTransactionSourceError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Sales transaction source is invalid.",
+            code="invalid_sales_transaction_source",
+            status_code=400,
+        )
+
+
+class InvalidSalesTransactionSortFieldError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Sales transaction sort field is invalid.",
+            code="invalid_sales_transaction_sort_field",
+            status_code=400,
+        )
+
+
+class SalesTransactionAlreadyDeletedError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Sales transaction is already deleted.",
+            code="sales_transaction_already_deleted",
+            status_code=409,
+        )

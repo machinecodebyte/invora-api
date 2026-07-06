@@ -22,7 +22,7 @@ Authorization: Bearer <access_token>
 ```
 
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
-   Products, Inventory, or Sales Upload endpoint.
+   Products, Inventory, Sales Upload, or Sales Transactions endpoint.
 
 ## Current API Groups
 
@@ -32,6 +32,7 @@ Authorization: Bearer <access_token>
 - `Products`
 - `Inventory`
 - `Sales Upload`
+- `Sales Transactions`
 
 ## Auth APIs Implemented
 
@@ -115,9 +116,27 @@ stored as historical sales transactions for forecasting input. Rejected rows are
 stored with safe row-level error messages. Sales upload does not reduce
 Inventory stock.
 
+## Sales Transactions APIs Implemented
+
+- `POST /api/v1/sales/transactions`
+- `GET /api/v1/sales/transactions`
+- `GET /api/v1/sales/transactions/summary`
+- `GET /api/v1/sales/transactions/trends`
+- `GET /api/v1/sales/transactions/by-product`
+- `GET /api/v1/sales/transactions/{transaction_id}`
+- `PATCH /api/v1/sales/transactions/{transaction_id}`
+- `DELETE /api/v1/sales/transactions/{transaction_id}`
+
+Sales Upload ingests CSV files and creates clean rows. Sales Transactions
+manages, queries, soft deletes, and aggregates those clean sales rows. Manual
+transaction creation uses `source=manual`; CSV-created rows keep
+`source=csv_upload`. Sales Transactions APIs require
+`Authorization: Bearer <access_token>`, enforce product and transaction
+ownership, exclude soft-deleted rows from default lists and aggregates, and do
+not reduce Inventory stock.
+
 ## Pending Future Modules
 
-- Sales Transactions
 - Forecasting
 - Recommendations
 - Dashboard
@@ -128,7 +147,7 @@ Inventory stock.
 
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
-Protected Auth, Users, Products, Inventory, and Sales Upload routes should be
-tested with `Authorization: Bearer <access_token>`. Use the refresh token only
-with `/auth/refresh` and `/auth/logout`; it should not be used as an access
-token.
+Protected Auth, Users, Products, Inventory, Sales Upload, and Sales
+Transactions routes should be tested with
+`Authorization: Bearer <access_token>`. Use the refresh token only with
+`/auth/refresh` and `/auth/logout`; it should not be used as an access token.

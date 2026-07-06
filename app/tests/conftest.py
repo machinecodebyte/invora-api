@@ -1,7 +1,7 @@
 import os
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -156,6 +156,7 @@ class FakeSalesTransaction:
     id: UUID
     user_id: UUID
     product_id: UUID
+    product: FakeProduct
     upload_batch_id: UUID | None
     sale_date: date
     quantity: Decimal
@@ -165,6 +166,8 @@ class FakeSalesTransaction:
     channel: str | None
     notes: str | None
     source: str
+    deleted_at: datetime | None
+    deleted_reason: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -915,6 +918,60 @@ class FakeSalesRepository:
         batch.updated_at = utc_now()
         return batch
 
+    async def get_product_for_user(
+        self,
+        *,
+        user_id: UUID,
+        product_id: UUID,
+    ) -> FakeProduct | None:
+        return await self.product_repository.get_product_by_id_for_user(
+            user_id=user_id,
+            product_id=product_id,
+        )
+
+    async def create_transaction(
+        self,
+        *,
+        user_id: UUID,
+        values: dict[str, object],
+    ) -> FakeSalesTransaction:
+        from app.shared.utils import utc_now
+
+        product = await self.get_product_for_user(
+            user_id=user_id,
+            product_id=values["product_id"],
+        )
+        now = utc_now()
+        transaction = FakeSalesTransaction(
+            id=uuid4(),
+            user_id=user_id,
+            product_id=values["product_id"],
+            product=product,
+            upload_batch_id=values.get("upload_batch_id"),
+            sale_date=values["sale_date"],
+            quantity=_decimal_value(values["quantity"]),
+            unit_price=(
+                None
+                if values.get("unit_price") is None
+                else _decimal_value(values["unit_price"])
+            ),
+            total_amount=(
+                None
+                if values.get("total_amount") is None
+                else _decimal_value(values["total_amount"])
+            ),
+            customer_name=values.get("customer_name"),
+            channel=values.get("channel"),
+            notes=values.get("notes"),
+            source=str(values.get("source", "manual")),
+            deleted_at=None,
+            deleted_reason=None,
+            created_at=now,
+            updated_at=now,
+        )
+        self.transactions_by_id[transaction.id] = transaction
+        return transaction
+
     async def create_sales_transactions_bulk(
         self,
         *,
@@ -927,10 +984,15 @@ class FakeSalesRepository:
         transactions: list[FakeSalesTransaction] = []
         for row in rows:
             now = utc_now()
+            product = await self.get_product_for_user(
+                user_id=user_id,
+                product_id=row["product_id"],
+            )
             transaction = FakeSalesTransaction(
                 id=uuid4(),
                 user_id=user_id,
                 product_id=row["product_id"],
+                product=product,
                 upload_batch_id=upload_batch_id,
                 sale_date=row["sale_date"],
                 quantity=_decimal_value(row["quantity"]),
@@ -948,6 +1010,8 @@ class FakeSalesRepository:
                 channel=row.get("channel"),
                 notes=row.get("notes"),
                 source=str(row["source"]),
+                deleted_at=None,
+                deleted_reason=None,
                 created_at=now,
                 updated_at=now,
             )
@@ -1032,6 +1096,271 @@ class FakeSalesRepository:
         total = len(rows)
         return rows[offset : offset + limit], total
 
+    async def get_transaction_for_user(
+        self,
+        *,
+        user_id: UUID,
+        transaction_id: UUID,
+        include_deleted: bool = False,
+    ) -> FakeSalesTransaction | None:
+        transaction = self.transactions_by_id.get(transaction_id)
+        if transaction is None or transaction.user_id != user_id:
+            return None
+        if not include_deleted and transaction.deleted_at is not None:
+            return None
+        return transaction
+
+    async def list_transactions_for_user(
+        self,
+        *,
+        user_id: UUID,
+        product_id: UUID | None,
+        category_id: UUID | None,
+        source: str | None,
+        channel: str | None,
+        date_from: date | None,
+        date_to: date | None,
+        include_deleted: bool,
+        search: str | None,
+        limit: int,
+        offset: int,
+        sort_by: str,
+        sort_order: str,
+    ) -> tuple[list[FakeSalesTransaction], int]:
+        transactions = [
+            transaction
+            for transaction in self.transactions_by_id.values()
+            if transaction.user_id == user_id
+        ]
+        if not include_deleted:
+            transactions = [
+                transaction
+                for transaction in transactions
+                if transaction.deleted_at is None
+            ]
+        if product_id is not None:
+            transactions = [
+                transaction
+                for transaction in transactions
+                if transaction.product_id == product_id
+            ]
+        if category_id is not None:
+            transactions = [
+                transaction
+                for transaction in transactions
+                if transaction.product.category_id == category_id
+            ]
+        if source is not None:
+            transactions = [
+                transaction
+                for transaction in transactions
+                if transaction.source == source
+            ]
+        if channel is not None:
+            transactions = [
+                transaction
+                for transaction in transactions
+                if transaction.channel == channel
+            ]
+        if date_from is not None:
+            transactions = [
+                transaction
+                for transaction in transactions
+                if transaction.sale_date >= date_from
+            ]
+        if date_to is not None:
+            transactions = [
+                transaction
+                for transaction in transactions
+                if transaction.sale_date <= date_to
+            ]
+        if search:
+            search_value = search.casefold()
+            transactions = [
+                transaction
+                for transaction in transactions
+                if search_value in transaction.product.name.casefold()
+                or search_value in transaction.product.normalized_sku.casefold()
+                or search_value in (transaction.customer_name or "").casefold()
+                or search_value in (transaction.channel or "").casefold()
+                or search_value in (transaction.notes or "").casefold()
+            ]
+
+        total = len(transactions)
+        transactions.sort(
+            key=lambda transaction: _sales_transaction_sort_value(
+                transaction,
+                sort_by,
+            ),
+            reverse=sort_order == "desc",
+        )
+        return transactions[offset : offset + limit], total
+
+    async def update_transaction(
+        self,
+        transaction: FakeSalesTransaction,
+        values: dict[str, object],
+    ) -> FakeSalesTransaction:
+        from app.shared.utils import utc_now
+
+        for field, value in values.items():
+            if field in {"quantity", "unit_price", "total_amount"}:
+                value = None if value is None else _decimal_value(value)
+            setattr(transaction, field, value)
+        if "product_id" in values:
+            transaction.product = await self.get_product_for_user(
+                user_id=transaction.user_id,
+                product_id=transaction.product_id,
+            )
+        transaction.updated_at = utc_now()
+        return transaction
+
+    async def soft_delete_transaction(
+        self,
+        transaction: FakeSalesTransaction,
+        *,
+        deleted_reason: str | None,
+    ) -> FakeSalesTransaction:
+        from app.shared.utils import utc_now
+
+        now = utc_now()
+        transaction.deleted_at = now
+        transaction.deleted_reason = deleted_reason
+        transaction.updated_at = now
+        return transaction
+
+    async def get_sales_summary_for_user(
+        self,
+        *,
+        user_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, object]:
+        transactions = _sales_transactions_for_aggregate(
+            self.transactions_by_id.values(),
+            user_id=user_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        total_transactions = len(transactions)
+        total_quantity = sum(
+            (transaction.quantity for transaction in transactions),
+            Decimal("0.000"),
+        )
+        total_amount = sum(
+            (
+                transaction.total_amount or Decimal("0.00")
+                for transaction in transactions
+            ),
+            Decimal("0.00"),
+        )
+        average_amount = (
+            total_amount / Decimal(total_transactions)
+            if total_transactions
+            else Decimal("0.00")
+        )
+        return {
+            "total_transactions": total_transactions,
+            "total_quantity_sold": total_quantity,
+            "total_sales_amount": total_amount,
+            "unique_products_sold": len(
+                {transaction.product_id for transaction in transactions}
+            ),
+            "average_transaction_amount": average_amount,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
+
+    async def get_sales_trends_for_user(
+        self,
+        *,
+        user_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        interval: str,
+    ) -> list[dict[str, object]]:
+        transactions = _sales_transactions_for_aggregate(
+            self.transactions_by_id.values(),
+            user_id=user_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        grouped: dict[date, list[FakeSalesTransaction]] = {}
+        for transaction in transactions:
+            grouped.setdefault(
+                _sales_period_start(transaction.sale_date, interval),
+                [],
+            ).append(transaction)
+
+        points: list[dict[str, object]] = []
+        for period_start, period_transactions in sorted(grouped.items()):
+            points.append(
+                {
+                    "period_start": period_start,
+                    "total_quantity": sum(
+                        (
+                            transaction.quantity
+                            for transaction in period_transactions
+                        ),
+                        Decimal("0.000"),
+                    ),
+                    "total_amount": sum(
+                        (
+                            transaction.total_amount or Decimal("0.00")
+                            for transaction in period_transactions
+                        ),
+                        Decimal("0.00"),
+                    ),
+                    "transaction_count": len(period_transactions),
+                }
+            )
+        return points
+
+    async def get_product_sales_summary_for_user(
+        self,
+        *,
+        user_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> list[dict[str, object]]:
+        transactions = _sales_transactions_for_aggregate(
+            self.transactions_by_id.values(),
+            user_id=user_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        grouped: dict[UUID, list[FakeSalesTransaction]] = {}
+        for transaction in transactions:
+            grouped.setdefault(transaction.product_id, []).append(transaction)
+
+        summaries: list[dict[str, object]] = []
+        for product_id, product_transactions in grouped.items():
+            product = product_transactions[0].product
+            summaries.append(
+                {
+                    "product_id": product_id,
+                    "product_name": product.name,
+                    "sku": product.sku,
+                    "total_quantity": sum(
+                        (
+                            transaction.quantity
+                            for transaction in product_transactions
+                        ),
+                        Decimal("0.000"),
+                    ),
+                    "total_amount": sum(
+                        (
+                            transaction.total_amount or Decimal("0.00")
+                            for transaction in product_transactions
+                        ),
+                        Decimal("0.00"),
+                    ),
+                    "transaction_count": len(product_transactions),
+                }
+            )
+        summaries.sort(key=lambda summary: summary["total_quantity"], reverse=True)
+        return summaries
+
     async def get_products_by_sku_for_user(
         self,
         *,
@@ -1081,6 +1410,55 @@ def _inventory_item_sort_value(item: FakeInventoryItem, sort_by: str) -> object:
     if sort_by == "sku":
         return item.product.normalized_sku
     return getattr(item, sort_by)
+
+
+def _sales_transaction_sort_value(
+    transaction: FakeSalesTransaction,
+    sort_by: str,
+) -> object:
+    if sort_by == "product_name":
+        return transaction.product.normalized_name
+    if sort_by == "sku":
+        return transaction.product.normalized_sku
+    value = getattr(transaction, sort_by)
+    if value is None and sort_by in {"unit_price", "total_amount"}:
+        return Decimal("-1")
+    if value is None:
+        return ""
+    return value
+
+
+def _sales_transactions_for_aggregate(
+    transactions: object,
+    *,
+    user_id: UUID,
+    date_from: date | None,
+    date_to: date | None,
+) -> list[FakeSalesTransaction]:
+    filtered = [
+        transaction
+        for transaction in transactions
+        if transaction.user_id == user_id and transaction.deleted_at is None
+    ]
+    if date_from is not None:
+        filtered = [
+            transaction
+            for transaction in filtered
+            if transaction.sale_date >= date_from
+        ]
+    if date_to is not None:
+        filtered = [
+            transaction for transaction in filtered if transaction.sale_date <= date_to
+        ]
+    return filtered
+
+
+def _sales_period_start(value: date, interval: str) -> date:
+    if interval == "week":
+        return value - timedelta(days=value.weekday())
+    if interval == "month":
+        return date(value.year, value.month, 1)
+    return value
 
 
 def _decimal_value(value: object) -> Decimal:
@@ -1221,8 +1599,14 @@ async def sales_client(
     from app.modules.auth.application.service import AuthService
     from app.modules.products.api.dependencies import get_product_service
     from app.modules.products.application.service import ProductService
-    from app.modules.sales.api.dependencies import get_sales_upload_service
-    from app.modules.sales.application.service import SalesUploadService
+    from app.modules.sales.api.dependencies import (
+        get_sales_transaction_service,
+        get_sales_upload_service,
+    )
+    from app.modules.sales.application.service import (
+        SalesTransactionService,
+        SalesUploadService,
+    )
     from app.modules.users.api.dependencies import get_user_profile_service
     from app.modules.users.application.service import UserProfileService
 
@@ -1238,10 +1622,16 @@ async def sales_client(
     async def override_sales_upload_service() -> SalesUploadService:
         return SalesUploadService(repository=sales_repository)
 
+    async def override_sales_transaction_service() -> SalesTransactionService:
+        return SalesTransactionService(repository=sales_repository)
+
     app.dependency_overrides[get_auth_service] = override_auth_service
     app.dependency_overrides[get_user_profile_service] = override_user_profile_service
     app.dependency_overrides[get_product_service] = override_product_service
     app.dependency_overrides[get_sales_upload_service] = override_sales_upload_service
+    app.dependency_overrides[get_sales_transaction_service] = (
+        override_sales_transaction_service
+    )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

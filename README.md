@@ -14,6 +14,7 @@ with FastAPI and async SQLAlchemy.
 - Product Catalog Module
 - Inventory Module
 - Sales Upload Module
+- Sales Transactions Module
 
 Pending modules include Forecasting, Recommendations, Dashboard, Reports,
 Background Jobs, and Settings.
@@ -35,11 +36,15 @@ Implemented now:
   immutable stock movement ledger for stock changes
 - Authenticated sales CSV upload with batch tracking, row-level validation,
   accepted sales transactions, rejected rows, and duplicate file protection
+- Authenticated sales transaction create/list/detail/update/soft-delete APIs,
+  filtering, summaries, trends, and product-wise aggregates over cleaned sales
+  data
 - PBKDF2-HMAC password hashing
 - HS256 access tokens and hashed refresh-token persistence
 - Async SQLAlchemy 2.x setup for PostgreSQL
 - Alembic migrations for foundation, auth, user profile fields, product catalog
-  tables, inventory tables, and sales upload tables
+  tables, inventory tables, sales upload tables, and sales transaction
+  soft-delete/query fields
 - Docker Compose services for PostgreSQL and Redis with configurable host ports
 - Pytest and Ruff setup
 - Swagger/OpenAPI documentation notes
@@ -133,8 +138,14 @@ http://127.0.0.1:8000/docs
   `/api/v1/sales/uploads/{upload_id}`,
   `/api/v1/sales/uploads/{upload_id}/rejected-rows`,
   `/api/v1/sales/uploads/template`
+- Sales Transactions: `/api/v1/sales/transactions`,
+  `/api/v1/sales/transactions/summary`,
+  `/api/v1/sales/transactions/trends`,
+  `/api/v1/sales/transactions/by-product`,
+  `/api/v1/sales/transactions/{transaction_id}`
 
 ## Next Recommended Module
 
-Build the Forecasting Module next. Sales Upload now provides clean historical
-demand data in `sales_transactions` without reducing inventory stock.
+Build the Forecasting Module next. Sales Upload ingests CSV demand history, and
+Sales Transactions now manages and aggregates clean `sales_transactions` rows
+without reducing inventory stock.
