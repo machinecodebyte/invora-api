@@ -4,6 +4,10 @@ The backend test suite is split into unit tests and integration-oriented API
 tests. Tests set safe environment variables in `app/tests/conftest.py` so they
 do not depend on production configuration.
 
+Use `python3 -m ...` on Unix/macOS/Linux. On Windows, use `py -3 -m ...`
+when the `python` command is unavailable. Docker-only runs can use
+`docker compose exec backend python -m pytest`.
+
 ## Unit Tests
 
 Unit tests cover:
@@ -36,9 +40,11 @@ Unit tests cover:
 - sales transaction date, quantity, price, amount, source, date range, and sort
   validation
 - sales transaction protected field rejection and update amount recalculation
+- forecast run horizon, lifecycle, cancellation, date range, sort/order, and
+  minimum data validation
 
 ```powershell
-python -m pytest app/tests/unit
+python3 -m pytest app/tests/unit
 ```
 
 ## Integration Tests
@@ -91,56 +97,67 @@ Integration tests cover:
 - sales transaction summary, trends, and by-product aggregates
 - CSV-upload-created rows appearing in Sales Transactions queries
 - sales transaction create does not reduce inventory stock
+- forecast run protected route behavior
+- forecast run create/list/detail/cancel/options behavior
+- forecast run ownership enforcement
+- forecast run product and sales-data pre-flight validation
 
 Auth and User Profile API tests use a deterministic fake repository through
-FastAPI dependency overrides. Product, Inventory, and Sales Upload API tests use
-deterministic fake repositories through the same override pattern. They do not
-touch production services.
+FastAPI dependency overrides. Product, Inventory, Sales Upload, Sales
+Transactions, and Forecast Run API tests use deterministic fake repositories
+through the same override pattern. They do not touch production services.
 
 ```powershell
-python -m pytest app/tests/integration
+python3 -m pytest app/tests/integration
 ```
 
 Run auth tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_auth_passwords.py app/tests/unit/test_auth_tokens.py app/tests/unit/test_auth_service.py app/tests/integration/test_auth_api.py
+python3 -m pytest app/tests/unit/test_auth_passwords.py app/tests/unit/test_auth_tokens.py app/tests/unit/test_auth_service.py app/tests/integration/test_auth_api.py
 ```
 
 Run user profile tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_user_profile.py app/tests/integration/test_user_profile_api.py
+python3 -m pytest app/tests/unit/test_user_profile.py app/tests/integration/test_user_profile_api.py
 ```
 
 Run product catalog tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_products.py app/tests/integration/test_products_api.py
+python3 -m pytest app/tests/unit/test_products.py app/tests/integration/test_products_api.py
 ```
 
 Run inventory tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_inventory.py app/tests/integration/test_inventory_api.py
+python3 -m pytest app/tests/unit/test_inventory.py app/tests/integration/test_inventory_api.py
 ```
 
 Run sales upload tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_sales_upload.py app/tests/integration/test_sales_upload_api.py
+python3 -m pytest app/tests/unit/test_sales_upload.py app/tests/integration/test_sales_upload_api.py
 ```
 
 Run sales transaction tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_sales_transactions.py app/tests/integration/test_sales_transactions_api.py
+python3 -m pytest app/tests/unit/test_sales_transactions.py app/tests/integration/test_sales_transactions_api.py
+```
+
+Run forecast run tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_forecast_runs.py app/tests/integration/test_forecast_runs_api.py
 ```
 
 Protected route tests register a user through the Auth API, use the returned
 Bearer access token for Users, Products, Inventory, Sales Upload, and Sales
-Transactions routes, and reuse fake repositories to verify profile, password,
-catalog, inventory, sales upload, and sales transaction state transitions.
+Transactions, and Forecast Run routes, and reuse fake repositories to verify
+profile, password, catalog, inventory, sales upload, sales transaction, and
+forecast run state transitions.
 
 ## DB-Dependent Test Flow
 
@@ -162,12 +179,18 @@ docker exec -it invora-postgres createdb -U postgres invora_test
 Run tests:
 
 ```powershell
-python -m pytest
+python3 -m pytest
+```
+
+Docker-only test run:
+
+```powershell
+docker compose exec backend python -m pytest
 ```
 
 The completed-module regression suite currently covers Foundation, Auth &
-Identity, User Profile, Product Catalog, Inventory, Sales Upload, and Sales
-Transactions.
+Identity, User Profile, Product Catalog, Inventory, Sales Upload, Sales
+Transactions, and Forecast Run.
 
 ## Future E2E Plan
 

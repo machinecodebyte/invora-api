@@ -184,6 +184,25 @@ class FakeSalesRejectedRow:
     created_at: datetime
 
 
+@dataclass(slots=True)
+class FakeForecastRun:
+    id: UUID
+    user_id: UUID
+    horizon_days: int
+    status: str
+    requested_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+    failed_at: datetime | None
+    cancelled_at: datetime | None
+    failure_reason: str | None
+    total_products: int
+    total_sales_records: int
+    run_metadata: dict[str, object] | None
+    created_at: datetime
+    updated_at: datetime
+
+
 class FakeAuthRepository:
     def __init__(self) -> None:
         self.users_by_email: dict[str, FakeUser] = {}
@@ -1390,6 +1409,133 @@ class FakeSalesRepository:
         return None
 
 
+class FakeForecastRunRepository:
+    def __init__(
+        self,
+        *,
+        product_repository: FakeProductRepository,
+        sales_repository: FakeSalesRepository,
+    ) -> None:
+        self.product_repository = product_repository
+        self.sales_repository = sales_repository
+        self.runs_by_id: dict[UUID, FakeForecastRun] = {}
+
+    async def create_forecast_run(
+        self,
+        *,
+        user_id: UUID,
+        values: dict[str, object],
+    ) -> FakeForecastRun:
+        from app.shared.utils import utc_now
+
+        now = utc_now()
+        run = FakeForecastRun(
+            id=uuid4(),
+            user_id=user_id,
+            horizon_days=int(values["horizon_days"]),
+            status=str(values["status"]),
+            requested_at=values.get("requested_at") or now,
+            started_at=values.get("started_at"),
+            completed_at=values.get("completed_at"),
+            failed_at=values.get("failed_at"),
+            cancelled_at=values.get("cancelled_at"),
+            failure_reason=values.get("failure_reason"),
+            total_products=int(values.get("total_products", 0)),
+            total_sales_records=int(values.get("total_sales_records", 0)),
+            run_metadata=values.get("run_metadata"),
+            created_at=now,
+            updated_at=now,
+        )
+        self.runs_by_id[run.id] = run
+        return run
+
+    async def get_forecast_run_for_user(
+        self,
+        *,
+        user_id: UUID,
+        run_id: UUID,
+    ) -> FakeForecastRun | None:
+        run = self.runs_by_id.get(run_id)
+        if run is None or run.user_id != user_id:
+            return None
+        return run
+
+    async def list_forecast_runs_for_user(
+        self,
+        *,
+        user_id: UUID,
+        status: str | None,
+        horizon_days: int | None,
+        date_from: datetime | None,
+        date_to: datetime | None,
+        limit: int,
+        offset: int,
+        sort_by: str,
+        sort_order: str,
+    ) -> tuple[list[FakeForecastRun], int]:
+        runs = [run for run in self.runs_by_id.values() if run.user_id == user_id]
+        if status is not None:
+            runs = [run for run in runs if run.status == status]
+        if horizon_days is not None:
+            runs = [run for run in runs if run.horizon_days == horizon_days]
+        if date_from is not None:
+            runs = [run for run in runs if run.requested_at >= date_from]
+        if date_to is not None:
+            runs = [run for run in runs if run.requested_at <= date_to]
+        runs.sort(
+            key=lambda run: getattr(run, sort_by),
+            reverse=sort_order == "desc",
+        )
+        total = len(runs)
+        return runs[offset : offset + limit], total
+
+    async def update_forecast_run_status(
+        self,
+        run: FakeForecastRun,
+        values: dict[str, object],
+    ) -> FakeForecastRun:
+        from app.shared.utils import utc_now
+
+        for field, value in values.items():
+            setattr(run, field, value)
+        run.updated_at = utc_now()
+        return run
+
+    async def count_user_active_products(self, *, user_id: UUID) -> int:
+        return sum(
+            1
+            for product in self.product_repository.products_by_id.values()
+            if product.user_id == user_id and product.is_active
+        )
+
+    async def count_user_sales_transactions(self, *, user_id: UUID) -> int:
+        return sum(
+            1
+            for transaction in self.sales_repository.transactions_by_id.values()
+            if transaction.user_id == user_id and transaction.deleted_at is None
+        )
+
+    async def get_user_sales_date_span(
+        self,
+        *,
+        user_id: UUID,
+    ) -> tuple[date | None, date | None]:
+        dates = [
+            transaction.sale_date
+            for transaction in self.sales_repository.transactions_by_id.values()
+            if transaction.user_id == user_id and transaction.deleted_at is None
+        ]
+        if not dates:
+            return None, None
+        return min(dates), max(dates)
+
+    async def commit(self) -> None:
+        return None
+
+    async def rollback(self) -> None:
+        return None
+
+
 def _product_sort_value(product: FakeProduct, sort_by: str) -> object:
     if sort_by == "name":
         return product.normalized_name
@@ -1485,6 +1631,17 @@ def inventory_repository(product_repository) -> FakeInventoryRepository:
 @pytest.fixture
 def sales_repository(product_repository) -> FakeSalesRepository:
     return FakeSalesRepository(product_repository=product_repository)
+
+
+@pytest.fixture
+def forecast_repository(
+    product_repository,
+    sales_repository,
+) -> FakeForecastRunRepository:
+    return FakeForecastRunRepository(
+        product_repository=product_repository,
+        sales_repository=sales_repository,
+    )
 
 
 @pytest.fixture
@@ -1632,6 +1789,56 @@ async def sales_client(
     app.dependency_overrides[get_sales_transaction_service] = (
         override_sales_transaction_service
     )
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    app.dependency_overrides.clear()
+    await close_database_engine()
+
+
+@pytest.fixture
+async def forecast_client(
+    app,
+    auth_repository,
+    product_repository,
+    sales_repository,
+    forecast_repository,
+) -> AsyncGenerator[AsyncClient, None]:
+    from app.core.config import get_settings
+    from app.db.session import close_database_engine
+    from app.modules.auth.api.dependencies import get_auth_service
+    from app.modules.auth.application.service import AuthService
+    from app.modules.forecasting.api.dependencies import get_forecast_run_service
+    from app.modules.forecasting.application.service import ForecastRunService
+    from app.modules.products.api.dependencies import get_product_service
+    from app.modules.products.application.service import ProductService
+    from app.modules.sales.api.dependencies import get_sales_transaction_service
+    from app.modules.sales.application.service import SalesTransactionService
+    from app.modules.users.api.dependencies import get_user_profile_service
+    from app.modules.users.application.service import UserProfileService
+
+    async def override_auth_service() -> AuthService:
+        return AuthService(repository=auth_repository, settings=get_settings())
+
+    async def override_user_profile_service() -> UserProfileService:
+        return UserProfileService(repository=auth_repository)
+
+    async def override_product_service() -> ProductService:
+        return ProductService(repository=product_repository)
+
+    async def override_sales_transaction_service() -> SalesTransactionService:
+        return SalesTransactionService(repository=sales_repository)
+
+    async def override_forecast_run_service() -> ForecastRunService:
+        return ForecastRunService(repository=forecast_repository)
+
+    app.dependency_overrides[get_auth_service] = override_auth_service
+    app.dependency_overrides[get_user_profile_service] = override_user_profile_service
+    app.dependency_overrides[get_product_service] = override_product_service
+    app.dependency_overrides[get_sales_transaction_service] = (
+        override_sales_transaction_service
+    )
+    app.dependency_overrides[get_forecast_run_service] = override_forecast_run_service
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

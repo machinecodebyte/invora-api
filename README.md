@@ -15,9 +15,10 @@ with FastAPI and async SQLAlchemy.
 - Inventory Module
 - Sales Upload Module
 - Sales Transactions Module
+- Forecast Run Module
 
-Pending modules include Forecasting, Recommendations, Dashboard, Reports,
-Background Jobs, and Settings.
+Pending modules include ML Forecasting, Forecast Results, Recommendations,
+Dashboard, Reports, Background Jobs, and Settings.
 
 ## Current Scope
 
@@ -39,12 +40,14 @@ Implemented now:
 - Authenticated sales transaction create/list/detail/update/soft-delete APIs,
   filtering, summaries, trends, and product-wise aggregates over cleaned sales
   data
+- Authenticated forecast run lifecycle APIs for pending run creation, list,
+  detail, cancellation, options, and pre-flight sales/product data validation
 - PBKDF2-HMAC password hashing
 - HS256 access tokens and hashed refresh-token persistence
 - Async SQLAlchemy 2.x setup for PostgreSQL
 - Alembic migrations for foundation, auth, user profile fields, product catalog
   tables, inventory tables, sales upload tables, and sales transaction
-  soft-delete/query fields
+  soft-delete/query fields, and forecast run lifecycle tables
 - Docker Compose services for PostgreSQL and Redis with configurable host ports
 - Pytest and Ruff setup
 - Swagger/OpenAPI documentation notes
@@ -64,13 +67,25 @@ Implemented now:
 
 ## Quick Start
 
+Use `python3 -m ...` on Unix/macOS/Linux. On Windows, use `py -3 -m ...` if
+`python` is unavailable. Inside Docker, `python` is available in the backend
+container.
+
 ```powershell
 cd backend
-python -m venv .venv
+python3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+python3 -m pip install --upgrade pip
+python3 -m pip install -e ".[dev]"
 Copy-Item .env.example .env
+```
+
+Windows launcher alternative:
+
+```powershell
+py -3 -m venv .venv
+py -3 -m pip install --upgrade pip
+py -3 -m pip install -e ".[dev]"
 ```
 
 Check whether default service ports are already busy:
@@ -78,15 +93,18 @@ Check whether default service ports are already busy:
 ```powershell
 Get-NetTCPConnection -LocalPort 5432 -ErrorAction SilentlyContinue
 Get-NetTCPConnection -LocalPort 56379 -ErrorAction SilentlyContinue
+Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
 docker ps
 ```
 
 Current safe local defaults use PostgreSQL host port `5432` and Redis host port
-`56379`. If needed, set different host ports in `.env`:
+`56379`, with backend host port `8000`. If needed, set different host ports in
+`.env`:
 
 ```text
 POSTGRES_HOST_PORT=5433
 REDIS_HOST_PORT=56380
+BACKEND_HOST_PORT=8001
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/invora
 REDIS_URL=redis://localhost:56380/0
 ```
@@ -95,8 +113,16 @@ Then run:
 
 ```powershell
 docker compose up -d invora-postgres invora-redis
-alembic upgrade head
-uvicorn app.main:app --reload
+python3 -m alembic upgrade head
+python3 -m uvicorn app.main:app --reload
+```
+
+Docker-only backend path:
+
+```powershell
+docker compose up -d invora-postgres invora-redis backend
+docker compose exec backend python -m alembic upgrade head
+docker compose exec backend python -m pytest
 ```
 
 Verify:
@@ -143,9 +169,12 @@ http://127.0.0.1:8000/docs
   `/api/v1/sales/transactions/trends`,
   `/api/v1/sales/transactions/by-product`,
   `/api/v1/sales/transactions/{transaction_id}`
+- Forecast Runs: `/api/v1/forecast-runs`,
+  `/api/v1/forecast-runs/options`, `/api/v1/forecast-runs/{run_id}`,
+  `/api/v1/forecast-runs/{run_id}/cancel`
 
 ## Next Recommended Module
 
-Build the Forecasting Module next. Sales Upload ingests CSV demand history, and
-Sales Transactions now manages and aggregates clean `sales_transactions` rows
-without reducing inventory stock.
+Build the ML Forecasting Module next. Forecast Run now manages pending run
+lifecycle only; the next module should process pending runs and generate
+forecast results.

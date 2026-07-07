@@ -1,6 +1,25 @@
 name: invora
 
 services:
+  backend:
+    build:
+      context: .
+    container_name: invora-backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@invora-postgres:5432/invora
+      REDIS_URL: redis://invora-redis:6379/0
+    ports:
+      - "${BACKEND_HOST_PORT:-8000}:8000"
+    depends_on:
+      invora-postgres:
+        condition: service_healthy
+      invora-redis:
+        condition: service_healthy
+    networks:
+      - invora-network
+
   invora-postgres:
     image: postgres:16-alpine
     container_name: invora-postgres

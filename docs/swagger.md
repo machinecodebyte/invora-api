@@ -22,7 +22,8 @@ Authorization: Bearer <access_token>
 ```
 
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
-   Products, Inventory, Sales Upload, or Sales Transactions endpoint.
+   Products, Inventory, Sales Upload, Sales Transactions, or Forecast Runs
+   endpoint.
 
 ## Current API Groups
 
@@ -33,6 +34,7 @@ Authorization: Bearer <access_token>
 - `Inventory`
 - `Sales Upload`
 - `Sales Transactions`
+- `Forecast Runs`
 
 ## Auth APIs Implemented
 
@@ -135,9 +137,23 @@ transaction creation uses `source=manual`; CSV-created rows keep
 ownership, exclude soft-deleted rows from default lists and aggregates, and do
 not reduce Inventory stock.
 
+## Forecast Run APIs Implemented
+
+- `POST /api/v1/forecast-runs`
+- `GET /api/v1/forecast-runs`
+- `GET /api/v1/forecast-runs/options`
+- `GET /api/v1/forecast-runs/{run_id}`
+- `POST /api/v1/forecast-runs/{run_id}/cancel`
+
+Forecast Run manages lifecycle metadata only: requested horizon, status,
+timestamps, product/sales-data counts, and cancellation. It does not train ML
+models and does not create forecast results. The future ML Forecasting module
+will process pending forecast runs and write future Forecast Results.
+
 ## Pending Future Modules
 
-- Forecasting
+- ML Forecasting
+- Forecast Results
 - Recommendations
 - Dashboard
 - Reports
@@ -147,7 +163,7 @@ not reduce Inventory stock.
 
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
-Protected Auth, Users, Products, Inventory, Sales Upload, and Sales
-Transactions routes should be tested with
+Protected Auth, Users, Products, Inventory, Sales Upload, Sales Transactions,
+and Forecast Runs routes should be tested with
 `Authorization: Bearer <access_token>`. Use the refresh token only with
 `/auth/refresh` and `/auth/logout`; it should not be used as an access token.

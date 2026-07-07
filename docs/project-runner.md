@@ -2,6 +2,12 @@
 
 Follow these steps from the `backend/` directory.
 
+Supported run modes:
+
+1. Local Unix/macOS/Linux with `python3 -m ...`
+2. Local Windows with `py -3 -m ...`
+3. Docker-only mode with `docker compose exec backend python -m ...`
+
 ## 1. Create the Environment File
 
 ```powershell
@@ -14,10 +20,19 @@ changed before any shared or deployed environment.
 ## 2. Install Dependencies
 
 ```powershell
-python -m venv .venv
+python3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+python3 -m pip install --upgrade pip
+python3 -m pip install -e ".[dev]"
+```
+
+Windows launcher alternative:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+py -3 -m pip install --upgrade pip
+py -3 -m pip install -e ".[dev]"
 ```
 
 ## 3. Check Local Ports
@@ -28,6 +43,7 @@ Docker services:
 ```powershell
 Get-NetTCPConnection -LocalPort 5432 -ErrorAction SilentlyContinue
 Get-NetTCPConnection -LocalPort 56379 -ErrorAction SilentlyContinue
+Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
 docker ps
 ```
 
@@ -36,11 +52,13 @@ PostgreSQL host port such as `5433`, `55432`, or `55433`. If `6379` is busy,
 choose an available Redis host port such as `6380`, `56379`, or `56380`.
 
 The current safe local defaults use PostgreSQL host port `5432` and Redis host
-port `56379`. Update `.env` to match your selected host ports:
+port `56379`, with backend host port `8000`. Update `.env` to match your
+selected host ports:
 
 ```text
 POSTGRES_HOST_PORT=5433
 REDIS_HOST_PORT=56380
+BACKEND_HOST_PORT=8001
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/invora
 REDIS_URL=redis://localhost:56380/0
 ```
@@ -62,6 +80,12 @@ docker compose config
 docker compose up -d invora-postgres invora-redis
 ```
 
+Docker-only backend mode:
+
+```powershell
+docker compose up -d invora-postgres invora-redis backend
+```
+
 Check service health:
 
 ```powershell
@@ -72,8 +96,8 @@ Expected isolated Docker resources:
 
 ```text
 project: invora
-services: invora-postgres, invora-redis
-containers: invora-postgres, invora-redis
+services: backend, invora-postgres, invora-redis
+containers: invora-backend, invora-postgres, invora-redis
 network: invora-network
 volumes: invora-postgres-data, invora-redis-data
 ```
@@ -81,8 +105,22 @@ volumes: invora-postgres-data, invora-redis-data
 ## 5. Run Migrations
 
 ```powershell
-alembic upgrade head
-alembic current
+python3 -m alembic upgrade head
+python3 -m alembic current
+```
+
+Windows launcher alternative:
+
+```powershell
+py -3 -m alembic upgrade head
+py -3 -m alembic current
+```
+
+Docker-only migration:
+
+```powershell
+docker compose exec backend python -m alembic upgrade head
+docker compose exec backend python -m alembic current
 ```
 
 The Auth migration creates `users` and `auth_refresh_tokens`. The User Profile
@@ -93,12 +131,25 @@ category names and SKUs. The Inventory migration creates `inventory_items` and
 ledger. The Sales Upload migration creates upload batches, sales transactions,
 and rejected row tables for historical demand ingestion. The Sales Transactions
 migration adds soft-delete fields and query indexes to the existing
-`sales_transactions` table.
+`sales_transactions` table. The Forecast Run migration creates
+`forecast_runs` for lifecycle metadata only; ML predictions are future scope.
 
 ## 6. Start FastAPI
 
 ```powershell
-uvicorn app.main:app --reload
+python3 -m uvicorn app.main:app --reload
+```
+
+Windows launcher alternative:
+
+```powershell
+py -3 -m uvicorn app.main:app --reload
+```
+
+Docker-only backend is started with:
+
+```powershell
+docker compose up -d backend
 ```
 
 API root:
@@ -111,6 +162,8 @@ Swagger UI:
 
 ```text
 http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/redoc
+http://127.0.0.1:8000/openapi.json
 ```
 
 ## 7. Verify Health APIs
@@ -214,4 +267,20 @@ Invoke-RestMethod `
 Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <token>" } `
   http://127.0.0.1:8000/api/v1/sales/transactions/summary
+```
+
+Verify Forecast Runs with the same Bearer access token. This creates pending
+run metadata only; the future ML Forecasting module will process pending runs:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/forecast-runs `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  -ContentType "application/json" `
+  -Body '{"horizon_days":7}'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  http://127.0.0.1:8000/api/v1/forecast-runs/options
 ```

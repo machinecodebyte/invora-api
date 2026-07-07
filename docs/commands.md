@@ -2,13 +2,26 @@
 
 Run commands from `backend/`.
 
+Use `python3 -m ...` on Unix/macOS/Linux. On Windows, use `py -3 -m ...`
+when the `python` command is unavailable. Inside the Docker backend container,
+`python` is available.
+
 ## Install
 
 ```powershell
-python -m venv .venv
+python3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+python3 -m pip install --upgrade pip
+python3 -m pip install -e ".[dev]"
+```
+
+Windows launcher alternative:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+py -3 -m pip install --upgrade pip
+py -3 -m pip install -e ".[dev]"
 ```
 
 ## Environment
@@ -22,20 +35,24 @@ Copy-Item .env.example .env
 ```powershell
 Get-NetTCPConnection -LocalPort 5432 -ErrorAction SilentlyContinue
 Get-NetTCPConnection -LocalPort 56379 -ErrorAction SilentlyContinue
+Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
 docker ps
 ```
 
 Current safe local defaults use `POSTGRES_HOST_PORT=5432` and
-`REDIS_HOST_PORT=56379`. If a port is busy, set `POSTGRES_HOST_PORT` or
-`REDIS_HOST_PORT` in `.env` and update local `DATABASE_URL` or `REDIS_URL` to
-use the selected host port.
+`REDIS_HOST_PORT=56379`, with backend host port `BACKEND_HOST_PORT=8000`. If a
+port is busy, set `POSTGRES_HOST_PORT`, `REDIS_HOST_PORT`, or
+`BACKEND_HOST_PORT` in `.env`. For local Python runs, update `DATABASE_URL` and
+`REDIS_URL` to use the selected host ports.
 
 ## Docker Compose
 
 ```powershell
 docker compose config
 docker compose up -d invora-postgres invora-redis
+docker compose up -d backend
 docker compose ps
+docker compose logs backend
 docker compose logs invora-postgres
 docker compose logs invora-redis
 docker compose down
@@ -45,8 +62,8 @@ Invora Docker resources are isolated as:
 
 ```text
 project: invora
-services: invora-postgres, invora-redis
-containers: invora-postgres, invora-redis
+services: backend, invora-postgres, invora-redis
+containers: invora-backend, invora-postgres, invora-redis
 network: invora-network
 volumes: invora-postgres-data, invora-redis-data
 ```
@@ -57,77 +74,122 @@ or forced container removal unless you explicitly intend to remove local data.
 ## Run Server
 
 ```powershell
-uvicorn app.main:app --reload
+python3 -m uvicorn app.main:app --reload
+```
+
+Windows launcher alternative:
+
+```powershell
+py -3 -m uvicorn app.main:app --reload
+```
+
+Docker-only backend:
+
+```powershell
+docker compose up -d invora-postgres invora-redis backend
+docker compose exec backend python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 ## Alembic
 
 ```powershell
-alembic heads
-alembic current
-alembic upgrade head
-alembic revision --autogenerate -m "describe change"
-alembic downgrade -1
+python3 -m alembic heads
+python3 -m alembic current
+python3 -m alembic upgrade head
+python3 -m alembic revision --autogenerate -m "describe change"
+python3 -m alembic downgrade -1
+```
+
+Windows launcher alternative:
+
+```powershell
+py -3 -m alembic upgrade head
+py -3 -m alembic current
+```
+
+Docker-only migration:
+
+```powershell
+docker compose exec backend python -m alembic upgrade head
+docker compose exec backend python -m alembic current
 ```
 
 ## Tests
 
 ```powershell
-python -m pytest
+python3 -m pytest
+```
+
+Windows launcher alternative:
+
+```powershell
+py -3 -m pytest
+```
+
+Docker-only tests:
+
+```powershell
+docker compose exec backend python -m pytest
 ```
 
 Run auth tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_auth_passwords.py app/tests/unit/test_auth_tokens.py app/tests/unit/test_auth_service.py app/tests/integration/test_auth_api.py
+python3 -m pytest app/tests/unit/test_auth_passwords.py app/tests/unit/test_auth_tokens.py app/tests/unit/test_auth_service.py app/tests/integration/test_auth_api.py
 ```
 
 Run user profile tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_user_profile.py app/tests/integration/test_user_profile_api.py
+python3 -m pytest app/tests/unit/test_user_profile.py app/tests/integration/test_user_profile_api.py
 ```
 
 Run product catalog tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_products.py app/tests/integration/test_products_api.py
+python3 -m pytest app/tests/unit/test_products.py app/tests/integration/test_products_api.py
 ```
 
 Run inventory tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_inventory.py app/tests/integration/test_inventory_api.py
+python3 -m pytest app/tests/unit/test_inventory.py app/tests/integration/test_inventory_api.py
 ```
 
 Run sales upload tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_sales_upload.py app/tests/integration/test_sales_upload_api.py
+python3 -m pytest app/tests/unit/test_sales_upload.py app/tests/integration/test_sales_upload_api.py
 ```
 
 Run sales transaction tests only:
 
 ```powershell
-python -m pytest app/tests/unit/test_sales_transactions.py app/tests/integration/test_sales_transactions_api.py
+python3 -m pytest app/tests/unit/test_sales_transactions.py app/tests/integration/test_sales_transactions_api.py
+```
+
+Run forecast run tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_forecast_runs.py app/tests/integration/test_forecast_runs_api.py
 ```
 
 Run health tests:
 
 ```powershell
-python -m pytest app/tests/integration/test_health_api.py
+python3 -m pytest app/tests/integration/test_health_api.py
 ```
 
 ## Lint
 
 ```powershell
-ruff check .
+python3 -m ruff check .
 ```
 
 ## Format
 
 ```powershell
-ruff format .
+python3 -m ruff format .
 ```
 
 ## Swagger/OpenAPI Verification
@@ -212,6 +274,21 @@ Invoke-RestMethod `
 Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <access_token>" } `
   'http://127.0.0.1:8000/api/v1/sales/transactions/trends?interval=day'
+```
+
+Manual forecast run API check:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/forecast-runs `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  -ContentType "application/json" `
+  -Body '{"horizon_days":7}'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  http://127.0.0.1:8000/api/v1/forecast-runs/options
 ```
 
 Browser URLs:

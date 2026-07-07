@@ -8,12 +8,12 @@ WORKDIR /app
 RUN addgroup --system app && adduser --system --ingroup app app
 
 COPY pyproject.toml ./
+COPY app ./app
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir .
+    && pip install --no-cache-dir ".[dev]"
 
 COPY alembic ./alembic
 COPY alembic.ini ./
-COPY app ./app
 
 USER app
 
