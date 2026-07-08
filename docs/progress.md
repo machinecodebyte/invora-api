@@ -10,8 +10,8 @@
 | Sales Upload Module | Completed | Authenticated CSV upload, batch tracking, row validation, sales transactions, rejected rows, duplicate file detection, tests, docs |
 | Sales Transactions Module | Completed | Manual transaction CRUD, soft delete, filters, summaries, trends, product-wise aggregates, tests, docs |
 | Forecast Run Module | Completed | Forecast lifecycle metadata, pending run creation, cancellation, options, pre-flight sales/product validation, tests, docs |
-| ML Forecasting Module | Pending | Will process pending forecast runs and generate predictions |
-| Forecast Results Module | Pending | Will store product-wise forecast output |
+| ML Forecasting Module | Completed | Processes pending/failed forecast runs, trains deterministic Random Forest pipeline, applies sparse-history fallback, persists predictions and metrics, tests, docs |
+| Forecast Results Module | Pending | Will expose persisted forecast predictions and metrics in dashboard/API-friendly query shapes |
 | Recommendations Module | Pending | Requires forecast results and inventory rules |
 | Dashboard Module | Pending | Requires aggregates from business modules |
 | Reports Module | Pending | Requires export/reporting requirements |

@@ -93,3 +93,39 @@ class InvalidForecastSortError(AppError):
             code="invalid_forecast_sort",
             status_code=400,
         )
+
+
+class MLDependencyUnavailableError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Required ML dependencies are unavailable.",
+            code="ml_dependency_unavailable",
+            status_code=503,
+        )
+
+
+class InvalidMLForecastRunStatusError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Forecast run cannot be processed in its current status.",
+            code="invalid_ml_forecast_run_status",
+            status_code=409,
+        )
+
+
+class MLForecastPipelineError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Forecast processing failed.",
+            code="ml_forecast_pipeline_failed",
+            status_code=500,
+        )
+
+
+class ForecastPredictionPersistenceError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Forecast predictions could not be persisted.",
+            code="forecast_prediction_persistence_failed",
+            status_code=500,
+        )

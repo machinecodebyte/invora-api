@@ -203,6 +203,34 @@ class FakeForecastRun:
     updated_at: datetime
 
 
+@dataclass(slots=True)
+class FakeForecastPrediction:
+    id: UUID
+    user_id: UUID
+    forecast_run_id: UUID
+    product_id: UUID
+    forecast_date: date
+    predicted_demand: Decimal
+    model_name: str
+    created_at: datetime
+
+
+@dataclass(slots=True)
+class FakeForecastMetric:
+    id: UUID
+    user_id: UUID
+    forecast_run_id: UUID
+    model_name: str
+    mae: Decimal | None
+    rmse: Decimal | None
+    mape: Decimal | None
+    training_rows: int
+    validation_rows: int
+    total_products: int
+    fallback_products: int
+    created_at: datetime
+
+
 class FakeAuthRepository:
     def __init__(self) -> None:
         self.users_by_email: dict[str, FakeUser] = {}
@@ -1419,6 +1447,8 @@ class FakeForecastRunRepository:
         self.product_repository = product_repository
         self.sales_repository = sales_repository
         self.runs_by_id: dict[UUID, FakeForecastRun] = {}
+        self.predictions_by_id: dict[UUID, FakeForecastPrediction] = {}
+        self.metrics_by_id: dict[UUID, FakeForecastMetric] = {}
 
     async def create_forecast_run(
         self,
@@ -1528,6 +1558,115 @@ class FakeForecastRunRepository:
         if not dates:
             return None, None
         return min(dates), max(dates)
+
+    async def get_active_products_for_user(self, *, user_id: UUID) -> list[FakeProduct]:
+        products = [
+            product
+            for product in self.product_repository.products_by_id.values()
+            if product.user_id == user_id and product.is_active
+        ]
+        products.sort(key=lambda product: product.normalized_sku)
+        return products
+
+    async def get_sales_transactions_for_forecasting(
+        self,
+        *,
+        user_id: UUID,
+    ) -> list[FakeSalesTransaction]:
+        transactions = [
+            transaction
+            for transaction in self.sales_repository.transactions_by_id.values()
+            if transaction.user_id == user_id and transaction.deleted_at is None
+        ]
+        transactions.sort(key=lambda row: (row.sale_date, str(row.product_id)))
+        return transactions
+
+    async def delete_predictions_for_run(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+    ) -> None:
+        self.predictions_by_id = {
+            prediction_id: prediction
+            for prediction_id, prediction in self.predictions_by_id.items()
+            if not (
+                prediction.user_id == user_id
+                and prediction.forecast_run_id == forecast_run_id
+            )
+        }
+        self.metrics_by_id = {
+            metric_id: metric
+            for metric_id, metric in self.metrics_by_id.items()
+            if not (
+                metric.user_id == user_id and metric.forecast_run_id == forecast_run_id
+            )
+        }
+
+    async def bulk_create_forecast_predictions(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+        rows: list[dict[str, object]],
+    ) -> list[FakeForecastPrediction]:
+        from app.shared.utils import utc_now
+
+        now = utc_now()
+        predictions: list[FakeForecastPrediction] = []
+        for row in rows:
+            prediction = FakeForecastPrediction(
+                id=uuid4(),
+                user_id=user_id,
+                forecast_run_id=forecast_run_id,
+                product_id=row["product_id"],
+                forecast_date=row["forecast_date"],
+                predicted_demand=row["predicted_demand"],
+                model_name=str(row["model_name"]),
+                created_at=now,
+            )
+            self.predictions_by_id[prediction.id] = prediction
+            predictions.append(prediction)
+        return predictions
+
+    async def create_forecast_metrics(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+        values: dict[str, object],
+    ) -> FakeForecastMetric:
+        from app.shared.utils import utc_now
+
+        metric = FakeForecastMetric(
+            id=uuid4(),
+            user_id=user_id,
+            forecast_run_id=forecast_run_id,
+            model_name=str(values["model_name"]),
+            mae=values["mae"],
+            rmse=values["rmse"],
+            mape=values["mape"],
+            training_rows=int(values["training_rows"]),
+            validation_rows=int(values["validation_rows"]),
+            total_products=int(values["total_products"]),
+            fallback_products=int(values["fallback_products"]),
+            created_at=utc_now(),
+        )
+        self.metrics_by_id[metric.id] = metric
+        return metric
+
+    async def count_predictions_for_run(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+    ) -> int:
+        return sum(
+            1
+            for prediction in self.predictions_by_id.values()
+            if prediction.user_id == user_id
+            and prediction.forecast_run_id == forecast_run_id
+        )
 
     async def commit(self) -> None:
         return None
@@ -1808,8 +1947,14 @@ async def forecast_client(
     from app.db.session import close_database_engine
     from app.modules.auth.api.dependencies import get_auth_service
     from app.modules.auth.application.service import AuthService
-    from app.modules.forecasting.api.dependencies import get_forecast_run_service
-    from app.modules.forecasting.application.service import ForecastRunService
+    from app.modules.forecasting.api.dependencies import (
+        get_forecast_run_service,
+        get_ml_forecasting_service,
+    )
+    from app.modules.forecasting.application.service import (
+        ForecastRunService,
+        MLForecastingService,
+    )
     from app.modules.products.api.dependencies import get_product_service
     from app.modules.products.application.service import ProductService
     from app.modules.sales.api.dependencies import get_sales_transaction_service
@@ -1832,6 +1977,9 @@ async def forecast_client(
     async def override_forecast_run_service() -> ForecastRunService:
         return ForecastRunService(repository=forecast_repository)
 
+    async def override_ml_forecasting_service() -> MLForecastingService:
+        return MLForecastingService(repository=forecast_repository)
+
     app.dependency_overrides[get_auth_service] = override_auth_service
     app.dependency_overrides[get_user_profile_service] = override_user_profile_service
     app.dependency_overrides[get_product_service] = override_product_service
@@ -1839,6 +1987,9 @@ async def forecast_client(
         override_sales_transaction_service
     )
     app.dependency_overrides[get_forecast_run_service] = override_forecast_run_service
+    app.dependency_overrides[get_ml_forecasting_service] = (
+        override_ml_forecasting_service
+    )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

@@ -8,3 +8,4 @@ __pycache__/
 .pip-work/
 .tmp/
 pytest-cache-files-*/
+*.egg-info/

@@ -132,7 +132,9 @@ ledger. The Sales Upload migration creates upload batches, sales transactions,
 and rejected row tables for historical demand ingestion. The Sales Transactions
 migration adds soft-delete fields and query indexes to the existing
 `sales_transactions` table. The Forecast Run migration creates
-`forecast_runs` for lifecycle metadata only; ML predictions are future scope.
+`forecast_runs` for lifecycle metadata. The ML Forecasting migration creates
+`forecast_predictions` and `forecast_model_metrics` for generated predictions
+and model quality summaries.
 
 ## 6. Start FastAPI
 
@@ -270,7 +272,7 @@ Invoke-RestMethod `
 ```
 
 Verify Forecast Runs with the same Bearer access token. This creates pending
-run metadata only; the future ML Forecasting module will process pending runs:
+run metadata. ML Forecasting can then process a pending or failed run:
 
 ```powershell
 Invoke-RestMethod `
@@ -283,4 +285,17 @@ Invoke-RestMethod `
 Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <token>" } `
   http://127.0.0.1:8000/api/v1/forecast-runs/options
+```
+
+Verify ML Forecasting with the returned forecast run id:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://127.0.0.1:8000/api/v1/forecast-runs/<run_id>/process' `
+  -Headers @{ Authorization = "Bearer <token>" }
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  http://127.0.0.1:8000/api/v1/ml/forecasting/health
 ```

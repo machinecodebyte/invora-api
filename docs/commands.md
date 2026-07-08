@@ -174,6 +174,12 @@ Run forecast run tests only:
 python3 -m pytest app/tests/unit/test_forecast_runs.py app/tests/integration/test_forecast_runs_api.py
 ```
 
+Run ML forecasting tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_ml_forecasting_pipeline.py app/tests/integration/test_ml_forecasting_api.py
+```
+
 Run health tests:
 
 ```powershell
@@ -289,6 +295,23 @@ Invoke-RestMethod `
 Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <access_token>" } `
   http://127.0.0.1:8000/api/v1/forecast-runs/options
+```
+
+Manual ML forecasting API check:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://127.0.0.1:8000/api/v1/forecast-runs/<run_id>/process' `
+  -Headers @{ Authorization = "Bearer <access_token>" }
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  http://127.0.0.1:8000/api/v1/ml/forecasting/options
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  http://127.0.0.1:8000/api/v1/ml/forecasting/health
 ```
 
 Browser URLs:

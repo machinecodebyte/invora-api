@@ -5,7 +5,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 
 from app.modules.auth.api.dependencies import get_current_user
-from app.modules.forecasting.api.dependencies import get_forecast_run_service
+from app.modules.forecasting.api.dependencies import (
+    get_forecast_run_service,
+    get_ml_forecasting_service,
+)
 from app.modules.forecasting.api.schemas import (
     ForecastRunCancelResponse,
     ForecastRunCreateRequest,
@@ -16,8 +19,13 @@ from app.modules.forecasting.api.schemas import (
     ForecastRunOptionsResponse,
     ForecastRunPublic,
     ForecastRunResponse,
+    MLForecastingProcessData,
+    MLForecastingProcessResponse,
 )
-from app.modules.forecasting.application.service import ForecastRunService
+from app.modules.forecasting.application.service import (
+    ForecastRunService,
+    MLForecastingService,
+)
 
 router = APIRouter(prefix="/forecast-runs", tags=["Forecast Runs"])
 
@@ -29,8 +37,8 @@ router = APIRouter(prefix="/forecast-runs", tags=["Forecast Runs"])
     summary="Create forecast run",
     description=(
         "Requires a Bearer access token and creates a pending forecast run. "
-        "This endpoint manages lifecycle metadata only; ML prediction is handled "
-        "by a future module."
+        "This endpoint manages lifecycle metadata; use the process endpoint to "
+        "generate ML predictions for the run."
     ),
 )
 async def create_forecast_run(
@@ -140,6 +148,33 @@ async def get_forecast_run(
     return ForecastRunResponse(
         data=ForecastRunData(run=ForecastRunPublic.model_validate(run))
     )
+
+
+@router.post(
+    "/{run_id}/process",
+    response_model=MLForecastingProcessResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["ML Forecasting"],
+    summary="Process forecast run",
+    description=(
+        "Requires a Bearer access token and processes an owned pending or failed "
+        "forecast run with the deterministic ML forecasting pipeline. "
+        "Predictions and metrics are persisted for the run."
+    ),
+)
+async def process_forecast_run(
+    run_id: UUID,
+    current_user: Annotated[object, Depends(get_current_user)],
+    ml_service: Annotated[
+        MLForecastingService,
+        Depends(get_ml_forecasting_service),
+    ],
+) -> MLForecastingProcessResponse:
+    result = await ml_service.process_forecast_run(
+        user_id=current_user.id,
+        run_id=run_id,
+    )
+    return MLForecastingProcessResponse(data=MLForecastingProcessData(**result))
 
 
 @router.post(

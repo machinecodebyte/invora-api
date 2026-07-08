@@ -16,9 +16,10 @@ with FastAPI and async SQLAlchemy.
 - Sales Upload Module
 - Sales Transactions Module
 - Forecast Run Module
+- ML Forecasting Module
 
-Pending modules include ML Forecasting, Forecast Results, Recommendations,
-Dashboard, Reports, Background Jobs, and Settings.
+Pending modules include Forecast Results, Recommendations, Dashboard, Reports,
+Background Jobs, and Settings.
 
 ## Current Scope
 
@@ -42,13 +43,18 @@ Implemented now:
   data
 - Authenticated forecast run lifecycle APIs for pending run creation, list,
   detail, cancellation, options, and pre-flight sales/product data validation
+- Authenticated ML forecasting processing for pending/failed forecast runs,
+  deterministic Random Forest training, recent-average fallback for sparse
+  products, persisted predictions, persisted metrics, options, and health APIs
 - PBKDF2-HMAC password hashing
 - HS256 access tokens and hashed refresh-token persistence
 - Async SQLAlchemy 2.x setup for PostgreSQL
 - Alembic migrations for foundation, auth, user profile fields, product catalog
   tables, inventory tables, sales upload tables, and sales transaction
-  soft-delete/query fields, and forecast run lifecycle tables
+  soft-delete/query fields, forecast run lifecycle tables, and ML forecasting
+  prediction/metric tables
 - Docker Compose services for PostgreSQL and Redis with configurable host ports
+- pandas, numpy, and scikit-learn for local ML forecasting
 - Pytest and Ruff setup
 - Swagger/OpenAPI documentation notes
 
@@ -171,10 +177,13 @@ http://127.0.0.1:8000/docs
   `/api/v1/sales/transactions/{transaction_id}`
 - Forecast Runs: `/api/v1/forecast-runs`,
   `/api/v1/forecast-runs/options`, `/api/v1/forecast-runs/{run_id}`,
+  `/api/v1/forecast-runs/{run_id}/process`,
   `/api/v1/forecast-runs/{run_id}/cancel`
+- ML Forecasting: `/api/v1/ml/forecasting/options`,
+  `/api/v1/ml/forecasting/health`
 
 ## Next Recommended Module
 
-Build the ML Forecasting Module next. Forecast Run now manages pending run
-lifecycle only; the next module should process pending runs and generate
-forecast results.
+Build the Forecast Results Module next. ML Forecasting now processes forecast
+runs and stores product-wise predictions/metrics; Forecast Results should expose
+those outputs in dashboard/API-friendly query shapes.

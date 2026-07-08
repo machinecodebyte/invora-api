@@ -22,8 +22,8 @@ Authorization: Bearer <access_token>
 ```
 
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
-   Products, Inventory, Sales Upload, Sales Transactions, or Forecast Runs
-   endpoint.
+   Products, Inventory, Sales Upload, Sales Transactions, Forecast Runs, or ML
+   Forecasting endpoint.
 
 ## Current API Groups
 
@@ -35,6 +35,7 @@ Authorization: Bearer <access_token>
 - `Sales Upload`
 - `Sales Transactions`
 - `Forecast Runs`
+- `ML Forecasting`
 
 ## Auth APIs Implemented
 
@@ -143,16 +144,29 @@ not reduce Inventory stock.
 - `GET /api/v1/forecast-runs`
 - `GET /api/v1/forecast-runs/options`
 - `GET /api/v1/forecast-runs/{run_id}`
+- `POST /api/v1/forecast-runs/{run_id}/process`
 - `POST /api/v1/forecast-runs/{run_id}/cancel`
 
 Forecast Run manages lifecycle metadata only: requested horizon, status,
-timestamps, product/sales-data counts, and cancellation. It does not train ML
-models and does not create forecast results. The future ML Forecasting module
-will process pending forecast runs and write future Forecast Results.
+timestamps, product/sales-data counts, and cancellation. ML Forecasting
+processes pending or failed runs and writes predictions/metrics; Forecast Run
+still does not expose dashboard-shaped result queries.
+
+## ML Forecasting APIs Implemented
+
+- `POST /api/v1/forecast-runs/{run_id}/process`
+- `GET /api/v1/ml/forecasting/options`
+- `GET /api/v1/ml/forecasting/health`
+
+ML Forecasting APIs require `Authorization: Bearer <access_token>`. Processing
+uses historical Sales Transactions as demand input, active Products as the
+forecast target set, a deterministic Random Forest model when enough data is
+available, and a recent-average fallback for sparse products. It persists
+product-wise predictions and model metrics for the run. It does not reduce
+Inventory stock and does not create reorder recommendations.
 
 ## Pending Future Modules
 
-- ML Forecasting
 - Forecast Results
 - Recommendations
 - Dashboard
@@ -164,6 +178,6 @@ will process pending forecast runs and write future Forecast Results.
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
 Protected Auth, Users, Products, Inventory, Sales Upload, Sales Transactions,
-and Forecast Runs routes should be tested with
+Forecast Runs, and ML Forecasting routes should be tested with
 `Authorization: Bearer <access_token>`. Use the refresh token only with
 `/auth/refresh` and `/auth/logout`; it should not be used as an access token.

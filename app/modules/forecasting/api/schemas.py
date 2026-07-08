@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
@@ -70,3 +71,52 @@ class ForecastRunOptionsData(BaseModel):
 class ForecastRunOptionsResponse(BaseModel):
     success: Literal[True] = True
     data: ForecastRunOptionsData
+
+
+class MLForecastingMetricsSummary(BaseModel):
+    model_name: str
+    mae: Decimal | None
+    rmse: Decimal | None
+    mape: Decimal | None
+    training_rows: int
+    validation_rows: int
+    fallback_products: int
+
+
+class MLForecastingProcessData(BaseModel):
+    run_id: UUID
+    status: Literal["completed", "failed", "running", "pending", "cancelled"]
+    horizon_days: Literal[7, 15, 30]
+    total_products: int
+    total_sales_records: int
+    predictions_created: int
+    metrics: MLForecastingMetricsSummary
+
+
+class MLForecastingProcessResponse(BaseModel):
+    success: Literal[True] = True
+    data: MLForecastingProcessData
+
+
+class MLForecastingOptionsData(BaseModel):
+    supported_horizons: tuple[Literal[7, 15, 30], ...]
+    default_model: str
+    fallback_strategy: str
+    required_minimum_data_notes: str
+
+
+class MLForecastingOptionsResponse(BaseModel):
+    success: Literal[True] = True
+    data: MLForecastingOptionsData
+
+
+class MLForecastingHealthData(BaseModel):
+    pandas_available: bool
+    numpy_available: bool
+    scikit_learn_available: bool
+    pipeline_ready: bool
+
+
+class MLForecastingHealthResponse(BaseModel):
+    success: Literal[True] = True
+    data: MLForecastingHealthData

@@ -42,6 +42,10 @@ Unit tests cover:
 - sales transaction protected field rejection and update amount recalculation
 - forecast run horizon, lifecycle, cancellation, date range, sort/order, and
   minimum data validation
+- ML forecasting preprocessing, daily aggregation, missing-date filling,
+  feature generation, lag/rolling features, metric calculation, zero-safe MAPE,
+  deterministic prediction output, sparse-history fallback, and negative-demand
+  clipping
 
 ```powershell
 python3 -m pytest app/tests/unit
@@ -101,11 +105,14 @@ Integration tests cover:
 - forecast run create/list/detail/cancel/options behavior
 - forecast run ownership enforcement
 - forecast run product and sales-data pre-flight validation
+- ML forecast run processing auth, ownership, status guards, clean missing-data
+  failures, persisted predictions, persisted metrics, options, and health
 
 Auth and User Profile API tests use a deterministic fake repository through
 FastAPI dependency overrides. Product, Inventory, Sales Upload, Sales
-Transactions, and Forecast Run API tests use deterministic fake repositories
-through the same override pattern. They do not touch production services.
+Transactions, Forecast Run, and ML Forecasting API tests use deterministic fake
+repositories through the same override pattern. They do not touch production
+services.
 
 ```powershell
 python3 -m pytest app/tests/integration
@@ -153,11 +160,17 @@ Run forecast run tests only:
 python3 -m pytest app/tests/unit/test_forecast_runs.py app/tests/integration/test_forecast_runs_api.py
 ```
 
+Run ML forecasting tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_ml_forecasting_pipeline.py app/tests/integration/test_ml_forecasting_api.py
+```
+
 Protected route tests register a user through the Auth API, use the returned
 Bearer access token for Users, Products, Inventory, Sales Upload, and Sales
-Transactions, and Forecast Run routes, and reuse fake repositories to verify
-profile, password, catalog, inventory, sales upload, sales transaction, and
-forecast run state transitions.
+Transactions, Forecast Run, and ML Forecasting routes, and reuse fake
+repositories to verify profile, password, catalog, inventory, sales upload,
+sales transaction, forecast run, and ML processing state transitions.
 
 ## DB-Dependent Test Flow
 
@@ -190,7 +203,7 @@ docker compose exec backend python -m pytest
 
 The completed-module regression suite currently covers Foundation, Auth &
 Identity, User Profile, Product Catalog, Inventory, Sales Upload, Sales
-Transactions, and Forecast Run.
+Transactions, Forecast Run, and ML Forecasting.
 
 ## Future E2E Plan
 
