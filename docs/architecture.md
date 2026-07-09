@@ -44,6 +44,6 @@ place for business logic.
 ## Foundation Boundaries
 
 The current backend includes foundation, auth, user profile, products,
-inventory, sales upload, sales transactions, forecast run, and ML forecasting
-modules, plus forecast results query APIs. Reorder recommendations, dashboard,
+inventory, sales upload, sales transactions, forecast run, ML forecasting,
+forecast results, and reorder recommendations modules. Dashboard analytics,
 reports, jobs, and settings remain pending.

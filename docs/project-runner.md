@@ -134,7 +134,9 @@ migration adds soft-delete fields and query indexes to the existing
 `sales_transactions` table. The Forecast Run migration creates
 `forecast_runs` for lifecycle metadata. The ML Forecasting migration creates
 `forecast_predictions` and `forecast_model_metrics` for generated predictions
-and model quality summaries.
+and model quality summaries. The Reorder Recommendations migration creates
+`reorder_recommendations` for persisted reorder decisions generated from
+completed forecast predictions and inventory snapshots.
 
 ## 6. Start FastAPI
 
@@ -315,3 +317,23 @@ Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <token>" } `
   'http://127.0.0.1:8000/api/v1/forecast-results/runs/<run_id>/chart?interval=day'
 ```
+
+Verify Reorder Recommendations after Forecast Results are available and each
+forecasted product has an Inventory item:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://127.0.0.1:8000/api/v1/recommendations/runs/<run_id>/generate' `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  -ContentType "application/json" `
+  -Body '{"refresh":false}'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/recommendations/runs/<run_id>/summary'
+```
+
+Recommendation generation reads Forecast Results and Inventory snapshots. It
+does not update stock quantities, change forecast run status, or create
+purchase orders.

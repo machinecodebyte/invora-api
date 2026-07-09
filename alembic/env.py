@@ -18,6 +18,9 @@ from app.modules.inventory.infrastructure import (  # noqa: F401
     models as inventory_models,
 )
 from app.modules.products.infrastructure import models as product_models  # noqa: F401
+from app.modules.recommendations.infrastructure import (  # noqa: F401
+    models as recommendation_models,
+)
 from app.modules.sales.infrastructure import models as sales_models  # noqa: F401
 
 config = context.config

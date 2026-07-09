@@ -12,8 +12,8 @@
 | Forecast Run Module | Completed | Forecast lifecycle metadata, pending run creation, cancellation, options, pre-flight sales/product validation, tests, docs |
 | ML Forecasting Module | Completed | Processes pending/failed forecast runs, trains deterministic Random Forest pipeline, applies sparse-history fallback, persists predictions and metrics, tests, docs |
 | Forecast Results Module | Completed | Exposes persisted forecast predictions and metrics through overview, prediction list, metrics, chart, and product detail APIs, tests, docs |
-| Reorder Recommendations Module | Pending | Requires forecast results and inventory stock/safety-stock rules |
-| Dashboard Module | Pending | Requires aggregates from business modules |
+| Reorder Recommendations Module | Completed | Generates user-scoped reorder decisions from completed forecast predictions plus inventory snapshots; includes risk levels, refresh, summaries, acknowledge/dismiss status, tests, docs |
+| Dashboard Analytics Module | Pending | Requires aggregates from recommendations, forecast results, inventory, and sales modules |
 | Reports Module | Pending | Requires export/reporting requirements |
 | Background Jobs Module | Pending | Redis placeholder exists; RQ integration pending |
 | Settings Module | Pending | Requires app/user settings requirements |

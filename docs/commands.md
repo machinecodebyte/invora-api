@@ -186,6 +186,12 @@ Run forecast result tests only:
 python3 -m pytest app/tests/unit/test_forecast_results.py app/tests/integration/test_forecast_results_api.py
 ```
 
+Run reorder recommendation tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_recommendations.py app/tests/integration/test_recommendations_api.py
+```
+
 Run health tests:
 
 ```powershell
@@ -342,6 +348,32 @@ Invoke-RestMethod `
 Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <access_token>" } `
   'http://127.0.0.1:8000/api/v1/forecast-results/runs/<run_id>/products/<product_id>'
+```
+
+Manual reorder recommendation API check:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://127.0.0.1:8000/api/v1/recommendations/runs/<run_id>/generate' `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  -ContentType "application/json" `
+  -Body '{"refresh":false}'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/recommendations?risk_level=high&limit=20'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/recommendations/runs/<run_id>/summary'
+
+Invoke-RestMethod `
+  -Method Patch `
+  -Uri 'http://127.0.0.1:8000/api/v1/recommendations/<recommendation_id>/status' `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  -ContentType "application/json" `
+  -Body '{"status":"acknowledged"}'
 ```
 
 Browser URLs:

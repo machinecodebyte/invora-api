@@ -23,7 +23,7 @@ Authorization: Bearer <access_token>
 
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
    Products, Inventory, Sales Upload, Sales Transactions, Forecast Runs, ML
-   Forecasting, or Forecast Results endpoint.
+   Forecasting, Forecast Results, or Reorder Recommendations endpoint.
 
 ## Current API Groups
 
@@ -37,6 +37,7 @@ Authorization: Bearer <access_token>
 - `Forecast Runs`
 - `ML Forecasting`
 - `Forecast Results`
+- `Reorder Recommendations`
 
 ## Auth APIs Implemented
 
@@ -185,6 +186,8 @@ Module boundaries:
 - Forecast Runs: lifecycle metadata and cancellation.
 - ML Forecasting: process pending/failed runs and persist predictions/metrics.
 - Forecast Results: read/query persisted predictions and metrics.
+- Reorder Recommendations: convert persisted forecast demand plus inventory
+  snapshots into reorder decisions.
 
 Manual verification flow:
 
@@ -198,10 +201,46 @@ Chart actual-sales comparison uses matching Sales Transactions when they exist
 for forecast dates. If no matching actual sales exist, `actual_quantity` is
 returned as `null`.
 
+## Reorder Recommendations APIs Implemented
+
+- `POST /api/v1/recommendations/runs/{run_id}/generate`
+- `GET /api/v1/recommendations`
+- `GET /api/v1/recommendations/runs/{run_id}`
+- `GET /api/v1/recommendations/runs/{run_id}/summary`
+- `GET /api/v1/recommendations/{recommendation_id}`
+- `PATCH /api/v1/recommendations/{recommendation_id}/status`
+
+Reorder Recommendations APIs require `Authorization: Bearer <access_token>`.
+Generation is allowed only for an owned completed forecast run with persisted
+forecast predictions and inventory items for every forecasted product. The
+module aggregates predicted demand by product, reads current stock, minimum
+stock, and safety stock from Inventory, then stores deterministic reorder
+decisions.
+
+Formula:
+
+```text
+required_stock = predicted_demand + safety_stock
+stock_gap = required_stock - current_stock
+reorder_quantity = max(stock_gap, 0)
+```
+
+Risk levels are `critical`, `high`, `medium`, `low`, and `overstocked`.
+Actions are `reorder_now`, `monitor`, `no_reorder_needed`, and
+`overstock_review`. Recommendation status values are `open`, `acknowledged`,
+and `dismissed`.
+
+If recommendations already exist for a run, generation returns `409` unless the
+request body includes `{"refresh": true}`. Refresh deletes and recreates only
+recommendations for that same owned forecast run.
+
+This module does not generate ML predictions, update forecast run status,
+change inventory stock, create purchase orders, or expose dashboard-shaped
+analytics APIs.
+
 ## Pending Future Modules
 
-- Reorder Recommendations
-- Dashboard
+- Dashboard Analytics
 - Reports
 - Settings
 
@@ -210,6 +249,7 @@ returned as `null`.
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
 Protected Auth, Users, Products, Inventory, Sales Upload, Sales Transactions,
-Forecast Runs, ML Forecasting, and Forecast Results routes should be tested with
-`Authorization: Bearer <access_token>`. Use the refresh token only with
-`/auth/refresh` and `/auth/logout`; it should not be used as an access token.
+Forecast Runs, ML Forecasting, Forecast Results, and Reorder Recommendations
+routes should be tested with `Authorization: Bearer <access_token>`. Use the
+refresh token only with `/auth/refresh` and `/auth/logout`; it should not be
+used as an access token.

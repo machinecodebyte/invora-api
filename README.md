@@ -18,9 +18,10 @@ with FastAPI and async SQLAlchemy.
 - Forecast Run Module
 - ML Forecasting Module
 - Forecast Results Module
+- Reorder Recommendations Module
 
-Pending modules include Reorder Recommendations, Dashboard, Reports,
-Background Jobs, and Settings.
+Pending modules include Dashboard Analytics, Reports, Background Jobs, and
+Settings.
 
 ## Current Scope
 
@@ -49,13 +50,16 @@ Implemented now:
   products, persisted predictions, persisted metrics, options, and health APIs
 - Authenticated forecast result APIs for run overview, paginated product/date
   predictions, metrics, chart data, and product-level forecast detail
+- Authenticated reorder recommendation APIs for completed forecast runs,
+  forecast-demand aggregation, inventory snapshot comparison, reorder quantity,
+  risk level, refresh, summaries, and acknowledge/dismiss status updates
 - PBKDF2-HMAC password hashing
 - HS256 access tokens and hashed refresh-token persistence
 - Async SQLAlchemy 2.x setup for PostgreSQL
 - Alembic migrations for foundation, auth, user profile fields, product catalog
   tables, inventory tables, sales upload tables, and sales transaction
   soft-delete/query fields, forecast run lifecycle tables, and ML forecasting
-  prediction/metric tables
+  prediction/metric tables, and reorder recommendation tables
 - Docker Compose services for PostgreSQL and Redis with configurable host ports
 - pandas, numpy, and scikit-learn for local ML forecasting
 - Pytest and Ruff setup
@@ -189,9 +193,16 @@ http://127.0.0.1:8000/docs
   `/api/v1/forecast-results/runs/{run_id}/metrics`,
   `/api/v1/forecast-results/runs/{run_id}/chart`,
   `/api/v1/forecast-results/runs/{run_id}/products/{product_id}`
+- Reorder Recommendations:
+  `/api/v1/recommendations/runs/{run_id}/generate`,
+  `/api/v1/recommendations`,
+  `/api/v1/recommendations/runs/{run_id}`,
+  `/api/v1/recommendations/runs/{run_id}/summary`,
+  `/api/v1/recommendations/{recommendation_id}`,
+  `/api/v1/recommendations/{recommendation_id}/status`
 
 ## Next Recommended Module
 
-Build the Reorder Recommendations Module next. Forecast Results now exposes
-predicted demand; Recommendations should compare those predictions with
-inventory stock and safety thresholds to calculate reorder quantity and risk.
+Build the Dashboard Analytics Module next. Reorder Recommendations now expose
+reorder risk, top reorder products, and forecast-run summaries that can feed
+dashboard KPIs and risk cards.
