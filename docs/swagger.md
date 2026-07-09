@@ -22,8 +22,8 @@ Authorization: Bearer <access_token>
 ```
 
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
-   Products, Inventory, Sales Upload, Sales Transactions, Forecast Runs, or ML
-   Forecasting endpoint.
+   Products, Inventory, Sales Upload, Sales Transactions, Forecast Runs, ML
+   Forecasting, or Forecast Results endpoint.
 
 ## Current API Groups
 
@@ -36,6 +36,7 @@ Authorization: Bearer <access_token>
 - `Sales Transactions`
 - `Forecast Runs`
 - `ML Forecasting`
+- `Forecast Results`
 
 ## Auth APIs Implemented
 
@@ -165,10 +166,41 @@ available, and a recent-average fallback for sparse products. It persists
 product-wise predictions and model metrics for the run. It does not reduce
 Inventory stock and does not create reorder recommendations.
 
+## Forecast Results APIs Implemented
+
+- `GET /api/v1/forecast-results/runs/{run_id}`
+- `GET /api/v1/forecast-results/runs/{run_id}/predictions`
+- `GET /api/v1/forecast-results/runs/{run_id}/metrics`
+- `GET /api/v1/forecast-results/runs/{run_id}/chart`
+- `GET /api/v1/forecast-results/runs/{run_id}/products/{product_id}`
+
+Forecast Results APIs require `Authorization: Bearer <access_token>`. They
+expose persisted predictions and metrics created by ML Forecasting. They do not
+generate predictions, update run status, reduce Inventory stock, or calculate
+reorder recommendations. Prediction list/detail responses include product
+metadata and optional inventory snapshot fields for context only.
+
+Module boundaries:
+
+- Forecast Runs: lifecycle metadata and cancellation.
+- ML Forecasting: process pending/failed runs and persist predictions/metrics.
+- Forecast Results: read/query persisted predictions and metrics.
+
+Manual verification flow:
+
+1. Create products and historical Sales Transactions.
+2. Create a forecast run with `POST /api/v1/forecast-runs`.
+3. Process it with `POST /api/v1/forecast-runs/{run_id}/process`.
+4. Read the results from `GET /api/v1/forecast-results/runs/{run_id}` and the
+   related predictions, metrics, chart, and product-detail endpoints.
+
+Chart actual-sales comparison uses matching Sales Transactions when they exist
+for forecast dates. If no matching actual sales exist, `actual_quantity` is
+returned as `null`.
+
 ## Pending Future Modules
 
-- Forecast Results
-- Recommendations
+- Reorder Recommendations
 - Dashboard
 - Reports
 - Settings
@@ -178,6 +210,6 @@ Inventory stock and does not create reorder recommendations.
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
 Protected Auth, Users, Products, Inventory, Sales Upload, Sales Transactions,
-Forecast Runs, and ML Forecasting routes should be tested with
+Forecast Runs, ML Forecasting, and Forecast Results routes should be tested with
 `Authorization: Bearer <access_token>`. Use the refresh token only with
 `/auth/refresh` and `/auth/logout`; it should not be used as an access token.

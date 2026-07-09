@@ -45,5 +45,5 @@ place for business logic.
 
 The current backend includes foundation, auth, user profile, products,
 inventory, sales upload, sales transactions, forecast run, and ML forecasting
-modules. Forecast results, recommendations, dashboard, reports, jobs, and
-settings remain pending.
+modules, plus forecast results query APIs. Reorder recommendations, dashboard,
+reports, jobs, and settings remain pending.

@@ -180,6 +180,12 @@ Run ML forecasting tests only:
 python3 -m pytest app/tests/unit/test_ml_forecasting_pipeline.py app/tests/integration/test_ml_forecasting_api.py
 ```
 
+Run forecast result tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_forecast_results.py app/tests/integration/test_forecast_results_api.py
+```
+
 Run health tests:
 
 ```powershell
@@ -312,6 +318,30 @@ Invoke-RestMethod `
 Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <access_token>" } `
   http://127.0.0.1:8000/api/v1/ml/forecasting/health
+```
+
+Manual forecast result API check:
+
+```powershell
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/forecast-results/runs/<run_id>'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/forecast-results/runs/<run_id>/predictions?limit=20&sort_by=forecast_date'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/forecast-results/runs/<run_id>/metrics'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/forecast-results/runs/<run_id>/chart?interval=day'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/forecast-results/runs/<run_id>/products/<product_id>'
 ```
 
 Browser URLs:

@@ -11,8 +11,8 @@
 | Sales Transactions Module | Completed | Manual transaction CRUD, soft delete, filters, summaries, trends, product-wise aggregates, tests, docs |
 | Forecast Run Module | Completed | Forecast lifecycle metadata, pending run creation, cancellation, options, pre-flight sales/product validation, tests, docs |
 | ML Forecasting Module | Completed | Processes pending/failed forecast runs, trains deterministic Random Forest pipeline, applies sparse-history fallback, persists predictions and metrics, tests, docs |
-| Forecast Results Module | Pending | Will expose persisted forecast predictions and metrics in dashboard/API-friendly query shapes |
-| Recommendations Module | Pending | Requires forecast results and inventory rules |
+| Forecast Results Module | Completed | Exposes persisted forecast predictions and metrics through overview, prediction list, metrics, chart, and product detail APIs, tests, docs |
+| Reorder Recommendations Module | Pending | Requires forecast results and inventory stock/safety-stock rules |
 | Dashboard Module | Pending | Requires aggregates from business modules |
 | Reports Module | Pending | Requires export/reporting requirements |
 | Background Jobs Module | Pending | Redis placeholder exists; RQ integration pending |

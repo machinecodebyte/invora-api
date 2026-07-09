@@ -1443,9 +1443,11 @@ class FakeForecastRunRepository:
         *,
         product_repository: FakeProductRepository,
         sales_repository: FakeSalesRepository,
+        inventory_repository: FakeInventoryRepository | None = None,
     ) -> None:
         self.product_repository = product_repository
         self.sales_repository = sales_repository
+        self.inventory_repository = inventory_repository
         self.runs_by_id: dict[UUID, FakeForecastRun] = {}
         self.predictions_by_id: dict[UUID, FakeForecastPrediction] = {}
         self.metrics_by_id: dict[UUID, FakeForecastMetric] = {}
@@ -1668,11 +1670,305 @@ class FakeForecastRunRepository:
             and prediction.forecast_run_id == forecast_run_id
         )
 
+    async def get_prediction_date_range(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+    ) -> tuple[date | None, date | None]:
+        dates = [
+            prediction.forecast_date
+            for prediction in self.predictions_by_id.values()
+            if prediction.user_id == user_id
+            and prediction.forecast_run_id == forecast_run_id
+        ]
+        if not dates:
+            return None, None
+        return min(dates), max(dates)
+
+    async def get_total_predicted_demand(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+    ) -> Decimal:
+        return sum(
+            (
+                prediction.predicted_demand
+                for prediction in self.predictions_by_id.values()
+                if prediction.user_id == user_id
+                and prediction.forecast_run_id == forecast_run_id
+            ),
+            Decimal("0.000"),
+        )
+
+    async def list_predictions_for_run(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+        product_id: UUID | None,
+        category_id: UUID | None,
+        date_from: date | None,
+        date_to: date | None,
+        search: str | None,
+        limit: int,
+        offset: int,
+        sort_by: str,
+        sort_order: str,
+    ) -> tuple[list[dict[str, object]], int]:
+        rows = [
+            self._prediction_to_result_row(prediction)
+            for prediction in self._filtered_predictions(
+                user_id=user_id,
+                forecast_run_id=forecast_run_id,
+                product_id=product_id,
+                category_id=category_id,
+                date_from=date_from,
+                date_to=date_to,
+                search=search,
+            )
+        ]
+        rows.sort(
+            key=lambda row: self._result_sort_value(row, sort_by),
+            reverse=sort_order == "desc",
+        )
+        total = len(rows)
+        return rows[offset : offset + limit], total
+
+    async def get_metrics_for_run(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+    ) -> FakeForecastMetric | None:
+        metrics = [
+            metric
+            for metric in self.metrics_by_id.values()
+            if metric.user_id == user_id and metric.forecast_run_id == forecast_run_id
+        ]
+        if not metrics:
+            return None
+        metrics.sort(key=lambda metric: metric.created_at, reverse=True)
+        return metrics[0]
+
+    async def get_chart_predictions_for_run(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+        product_id: UUID | None,
+        date_from: date | None,
+        date_to: date | None,
+        interval: str,
+    ) -> list[dict[str, object]]:
+        totals: dict[date, Decimal] = {}
+        for prediction in self._filtered_predictions(
+            user_id=user_id,
+            forecast_run_id=forecast_run_id,
+            product_id=product_id,
+            category_id=None,
+            date_from=date_from,
+            date_to=date_to,
+            search=None,
+        ):
+            period_start = _sales_period_start(prediction.forecast_date, interval)
+            totals[period_start] = totals.get(period_start, Decimal("0.000")) + (
+                prediction.predicted_demand
+            )
+        return [
+            {"period_start": period, "predicted_demand": total}
+            for period, total in sorted(totals.items())
+        ]
+
+    async def get_actual_sales_for_forecast_dates(
+        self,
+        *,
+        user_id: UUID,
+        product_id: UUID | None,
+        date_from: date,
+        date_to: date,
+        interval: str,
+    ) -> list[dict[str, object]]:
+        totals: dict[date, Decimal] = {}
+        for transaction in self.sales_repository.transactions_by_id.values():
+            if transaction.user_id != user_id or transaction.deleted_at is not None:
+                continue
+            if product_id is not None and transaction.product_id != product_id:
+                continue
+            if transaction.sale_date < date_from or transaction.sale_date > date_to:
+                continue
+            period_start = _sales_period_start(transaction.sale_date, interval)
+            totals[period_start] = totals.get(period_start, Decimal("0.000")) + (
+                transaction.quantity
+            )
+        return [
+            {"period_start": period, "actual_quantity": total}
+            for period, total in sorted(totals.items())
+        ]
+
+    async def get_product_forecast_detail(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+        product_id: UUID,
+    ) -> list[dict[str, object]]:
+        rows, _ = await self.list_predictions_for_run(
+            user_id=user_id,
+            forecast_run_id=forecast_run_id,
+            product_id=product_id,
+            category_id=None,
+            date_from=None,
+            date_to=None,
+            search=None,
+            limit=1000,
+            offset=0,
+            sort_by="forecast_date",
+            sort_order="asc",
+        )
+        return rows
+
+    async def get_product_for_user(
+        self,
+        *,
+        user_id: UUID,
+        product_id: UUID,
+    ) -> FakeProduct | None:
+        product = self.product_repository.products_by_id.get(product_id)
+        if product is None or product.user_id != user_id:
+            return None
+        return product
+
+    async def get_inventory_snapshot_for_products(
+        self,
+        *,
+        user_id: UUID,
+        product_ids: set[UUID],
+    ) -> dict[UUID, FakeInventoryItem]:
+        if self.inventory_repository is None:
+            return {}
+        return {
+            item.product_id: item
+            for item in self.inventory_repository.items_by_id.values()
+            if item.user_id == user_id and item.product_id in product_ids
+        }
+
     async def commit(self) -> None:
         return None
 
     async def rollback(self) -> None:
         return None
+
+    def _filtered_predictions(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+        product_id: UUID | None,
+        category_id: UUID | None,
+        date_from: date | None,
+        date_to: date | None,
+        search: str | None,
+    ) -> list[FakeForecastPrediction]:
+        predictions = [
+            prediction
+            for prediction in self.predictions_by_id.values()
+            if prediction.user_id == user_id
+            and prediction.forecast_run_id == forecast_run_id
+        ]
+        if product_id is not None:
+            predictions = [
+                prediction
+                for prediction in predictions
+                if prediction.product_id == product_id
+            ]
+        if date_from is not None:
+            predictions = [
+                prediction
+                for prediction in predictions
+                if prediction.forecast_date >= date_from
+            ]
+        if date_to is not None:
+            predictions = [
+                prediction
+                for prediction in predictions
+                if prediction.forecast_date <= date_to
+            ]
+        if category_id is not None:
+            predictions = [
+                prediction
+                for prediction in predictions
+                if self.product_repository.products_by_id[
+                    prediction.product_id
+                ].category_id
+                == category_id
+            ]
+        if search:
+            needle = search.strip().lower()
+            if needle:
+                predictions = [
+                    prediction
+                    for prediction in predictions
+                    if self._prediction_matches_search(prediction, needle)
+                ]
+        return predictions
+
+    def _prediction_matches_search(
+        self,
+        prediction: FakeForecastPrediction,
+        needle: str,
+    ) -> bool:
+        product = self.product_repository.products_by_id[prediction.product_id]
+        return (
+            needle in product.name.lower()
+            or needle in product.sku.lower()
+            or needle in product.normalized_sku.lower()
+            or needle in prediction.model_name.lower()
+        )
+
+    def _prediction_to_result_row(
+        self,
+        prediction: FakeForecastPrediction,
+    ) -> dict[str, object]:
+        product = self.product_repository.products_by_id[prediction.product_id]
+        category = (
+            self.product_repository.categories_by_id.get(product.category_id)
+            if product.category_id is not None
+            else None
+        )
+        inventory_item = None
+        if self.inventory_repository is not None:
+            inventory_item = next(
+                (
+                    item
+                    for item in self.inventory_repository.items_by_id.values()
+                    if item.user_id == prediction.user_id
+                    and item.product_id == prediction.product_id
+                ),
+                None,
+            )
+        return {
+            "product_id": prediction.product_id,
+            "product_name": product.name,
+            "sku": product.sku,
+            "category_id": product.category_id,
+            "category_name": category.name if category else None,
+            "unit": product.unit,
+            "current_stock": inventory_item.current_stock if inventory_item else None,
+            "minimum_stock": inventory_item.minimum_stock if inventory_item else None,
+            "safety_stock": inventory_item.safety_stock if inventory_item else None,
+            "forecast_date": prediction.forecast_date,
+            "predicted_demand": prediction.predicted_demand,
+            "model_name": prediction.model_name,
+        }
+
+    def _result_sort_value(self, row: dict[str, object], sort_by: str) -> object:
+        if sort_by == "product_name":
+            return str(row["product_name"]).lower()
+        if sort_by == "sku":
+            return str(row["sku"]).upper()
+        return row[sort_by]
 
 
 def _product_sort_value(product: FakeProduct, sort_by: str) -> object:
@@ -1775,10 +2071,12 @@ def sales_repository(product_repository) -> FakeSalesRepository:
 @pytest.fixture
 def forecast_repository(
     product_repository,
+    inventory_repository,
     sales_repository,
 ) -> FakeForecastRunRepository:
     return FakeForecastRunRepository(
         product_repository=product_repository,
+        inventory_repository=inventory_repository,
         sales_repository=sales_repository,
     )
 
@@ -1948,10 +2246,12 @@ async def forecast_client(
     from app.modules.auth.api.dependencies import get_auth_service
     from app.modules.auth.application.service import AuthService
     from app.modules.forecasting.api.dependencies import (
+        get_forecast_result_service,
         get_forecast_run_service,
         get_ml_forecasting_service,
     )
     from app.modules.forecasting.application.service import (
+        ForecastResultService,
         ForecastRunService,
         MLForecastingService,
     )
@@ -1980,6 +2280,9 @@ async def forecast_client(
     async def override_ml_forecasting_service() -> MLForecastingService:
         return MLForecastingService(repository=forecast_repository)
 
+    async def override_forecast_result_service() -> ForecastResultService:
+        return ForecastResultService(repository=forecast_repository)
+
     app.dependency_overrides[get_auth_service] = override_auth_service
     app.dependency_overrides[get_user_profile_service] = override_user_profile_service
     app.dependency_overrides[get_product_service] = override_product_service
@@ -1989,6 +2292,9 @@ async def forecast_client(
     app.dependency_overrides[get_forecast_run_service] = override_forecast_run_service
     app.dependency_overrides[get_ml_forecasting_service] = (
         override_ml_forecasting_service
+    )
+    app.dependency_overrides[get_forecast_result_service] = (
+        override_forecast_result_service
     )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

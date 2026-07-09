@@ -299,3 +299,19 @@ Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <token>" } `
   http://127.0.0.1:8000/api/v1/ml/forecasting/health
 ```
+
+Verify Forecast Results after the run has completed processing:
+
+```powershell
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/forecast-results/runs/<run_id>'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/forecast-results/runs/<run_id>/predictions'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/forecast-results/runs/<run_id>/chart?interval=day'
+```

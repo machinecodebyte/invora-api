@@ -129,3 +129,66 @@ class ForecastPredictionPersistenceError(AppError):
             code="forecast_prediction_persistence_failed",
             status_code=500,
         )
+
+
+class ForecastResultNotFoundError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Forecast result was not found.",
+            code="forecast_result_not_found",
+            status_code=404,
+        )
+
+
+class ForecastResultsNotReadyError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Forecast results are not ready for this run.",
+            code="forecast_results_not_ready",
+            status_code=409,
+        )
+
+
+class ForecastResultProductNotFoundError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Forecast result product was not found.",
+            code="forecast_result_product_not_found",
+            status_code=404,
+        )
+
+
+class ForecastResultMetricsNotFoundError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Forecast result metrics were not found.",
+            code="forecast_result_metrics_not_found",
+            status_code=404,
+        )
+
+
+class InvalidForecastResultDateRangeError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Forecast result date range is invalid.",
+            code="invalid_forecast_result_date_range",
+            status_code=400,
+        )
+
+
+class InvalidForecastResultIntervalError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Forecast result chart interval is invalid.",
+            code="invalid_forecast_result_interval",
+            status_code=400,
+        )
+
+
+class InvalidForecastResultSortError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Forecast result sort value is invalid.",
+            code="invalid_forecast_result_sort",
+            status_code=400,
+        )

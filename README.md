@@ -17,8 +17,9 @@ with FastAPI and async SQLAlchemy.
 - Sales Transactions Module
 - Forecast Run Module
 - ML Forecasting Module
+- Forecast Results Module
 
-Pending modules include Forecast Results, Recommendations, Dashboard, Reports,
+Pending modules include Reorder Recommendations, Dashboard, Reports,
 Background Jobs, and Settings.
 
 ## Current Scope
@@ -46,6 +47,8 @@ Implemented now:
 - Authenticated ML forecasting processing for pending/failed forecast runs,
   deterministic Random Forest training, recent-average fallback for sparse
   products, persisted predictions, persisted metrics, options, and health APIs
+- Authenticated forecast result APIs for run overview, paginated product/date
+  predictions, metrics, chart data, and product-level forecast detail
 - PBKDF2-HMAC password hashing
 - HS256 access tokens and hashed refresh-token persistence
 - Async SQLAlchemy 2.x setup for PostgreSQL
@@ -181,9 +184,14 @@ http://127.0.0.1:8000/docs
   `/api/v1/forecast-runs/{run_id}/cancel`
 - ML Forecasting: `/api/v1/ml/forecasting/options`,
   `/api/v1/ml/forecasting/health`
+- Forecast Results: `/api/v1/forecast-results/runs/{run_id}`,
+  `/api/v1/forecast-results/runs/{run_id}/predictions`,
+  `/api/v1/forecast-results/runs/{run_id}/metrics`,
+  `/api/v1/forecast-results/runs/{run_id}/chart`,
+  `/api/v1/forecast-results/runs/{run_id}/products/{product_id}`
 
 ## Next Recommended Module
 
-Build the Forecast Results Module next. ML Forecasting now processes forecast
-runs and stores product-wise predictions/metrics; Forecast Results should expose
-those outputs in dashboard/API-friendly query shapes.
+Build the Reorder Recommendations Module next. Forecast Results now exposes
+predicted demand; Recommendations should compare those predictions with
+inventory stock and safety thresholds to calculate reorder quantity and risk.

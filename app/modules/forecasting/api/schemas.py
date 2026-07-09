@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
@@ -120,3 +120,127 @@ class MLForecastingHealthData(BaseModel):
 class MLForecastingHealthResponse(BaseModel):
     success: Literal[True] = True
     data: MLForecastingHealthData
+
+
+class ForecastResultMetricsPublic(BaseModel):
+    model_name: str
+    mae: Decimal | None
+    rmse: Decimal | None
+    mape: Decimal | None
+    training_rows: int
+    validation_rows: int
+    total_products: int
+    fallback_products: int
+    created_at: datetime
+
+
+class ForecastResultOverviewData(BaseModel):
+    run_id: UUID
+    status: Literal["completed"]
+    horizon_days: Literal[7, 15, 30]
+    requested_at: datetime
+    completed_at: datetime | None
+    model_name: str | None
+    total_products: int
+    total_predictions: int
+    forecast_start_date: date | None
+    forecast_end_date: date | None
+    total_predicted_demand: Decimal
+    average_predicted_demand: Decimal
+    metrics: ForecastResultMetricsPublic | None
+
+
+class ForecastResultOverviewResponse(BaseModel):
+    success: Literal[True] = True
+    data: ForecastResultOverviewData
+
+
+class ForecastPredictionPublic(BaseModel):
+    product_id: UUID
+    product_name: str
+    sku: str
+    category_id: UUID | None
+    category_name: str | None
+    unit: str
+    current_stock: Decimal | None
+    minimum_stock: Decimal | None
+    safety_stock: Decimal | None
+    forecast_date: date
+    predicted_demand: Decimal
+    model_name: str
+
+
+class ForecastPredictionResponse(BaseModel):
+    success: Literal[True] = True
+    data: ForecastPredictionPublic
+
+
+class ForecastPredictionListData(BaseModel):
+    predictions: list[ForecastPredictionPublic]
+    total: int
+    limit: int
+    offset: int
+
+
+class ForecastPredictionListResponse(BaseModel):
+    success: Literal[True] = True
+    data: ForecastPredictionListData
+
+
+class ForecastMetricsData(BaseModel):
+    metrics: ForecastResultMetricsPublic
+
+
+class ForecastMetricsResponse(BaseModel):
+    success: Literal[True] = True
+    data: ForecastMetricsData
+
+
+class ForecastChartPointResponse(BaseModel):
+    period_start: date
+    predicted_demand: Decimal
+    actual_quantity: Decimal | None
+
+
+class ForecastChartMetadata(BaseModel):
+    run_id: UUID
+    horizon_days: Literal[7, 15, 30]
+    interval: Literal["day", "week", "month"]
+
+
+class ForecastChartData(BaseModel):
+    metadata: ForecastChartMetadata
+    points: list[ForecastChartPointResponse]
+
+
+class ForecastChartResponse(BaseModel):
+    success: Literal[True] = True
+    data: ForecastChartData
+
+
+class ProductForecastPointResponse(BaseModel):
+    forecast_date: date
+    predicted_demand: Decimal
+    actual_quantity: Decimal | None
+    model_name: str
+
+
+class ProductForecastDetailData(BaseModel):
+    run_id: UUID
+    horizon_days: Literal[7, 15, 30]
+    product_id: UUID
+    product_name: str
+    sku: str
+    category_id: UUID | None
+    category_name: str | None
+    unit: str
+    current_stock: Decimal | None
+    minimum_stock: Decimal | None
+    safety_stock: Decimal | None
+    total_predicted_demand: Decimal
+    points: list[ProductForecastPointResponse]
+
+
+class ProductForecastDetailResponse(BaseModel):
+    success: Literal[True] = True
+    data: ProductForecastDetailData
