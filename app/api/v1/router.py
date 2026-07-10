@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import health
 from app.modules.auth.api.routes import router as auth_router
+from app.modules.dashboard.api.routes import router as dashboard_router
 from app.modules.forecasting.api.ml_routes import router as ml_forecasting_router
 from app.modules.forecasting.api.result_routes import router as forecast_results_router
 from app.modules.forecasting.api.routes import router as forecasting_router
@@ -21,4 +22,5 @@ api_router.include_router(forecasting_router)
 api_router.include_router(ml_forecasting_router)
 api_router.include_router(forecast_results_router)
 api_router.include_router(recommendations_router)
+api_router.include_router(dashboard_router)
 api_router.include_router(health.router, tags=["health"])

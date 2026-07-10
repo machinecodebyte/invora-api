@@ -23,7 +23,8 @@ Authorization: Bearer <access_token>
 
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
    Products, Inventory, Sales Upload, Sales Transactions, Forecast Runs, ML
-   Forecasting, Forecast Results, or Reorder Recommendations endpoint.
+   Forecasting, Forecast Results, Reorder Recommendations, or Dashboard
+   Analytics endpoint.
 
 ## Current API Groups
 
@@ -38,6 +39,7 @@ Authorization: Bearer <access_token>
 - `ML Forecasting`
 - `Forecast Results`
 - `Reorder Recommendations`
+- `Dashboard Analytics`
 
 ## Auth APIs Implemented
 
@@ -238,10 +240,38 @@ This module does not generate ML predictions, update forecast run status,
 change inventory stock, create purchase orders, or expose dashboard-shaped
 analytics APIs.
 
+## Dashboard Analytics APIs Implemented
+
+- `GET /api/v1/dashboard/summary`
+- `GET /api/v1/dashboard/kpis`
+- `GET /api/v1/dashboard/demand-trends`
+- `GET /api/v1/dashboard/inventory-risk`
+- `GET /api/v1/dashboard/forecast-overview`
+- `GET /api/v1/dashboard/reorder-alerts`
+- `GET /api/v1/dashboard/recent-activity`
+
+Dashboard Analytics APIs require `Authorization: Bearer <access_token>`. They
+combine read-only data from Products, Inventory, Sales Transactions, Sales
+Uploads, Forecast Runs, Forecast Results, and Reorder Recommendations into
+dashboard-ready summaries. They do not create products, mutate inventory,
+upload sales, process forecasts, generate recommendations, or create reports.
+
+`GET /dashboard/summary` returns the initial-load dashboard shape with KPIs,
+demand trend preview, inventory risk, forecast overview, reorder alert preview,
+and recent activity. If `date_from` or `date_to` is omitted, the service uses a
+safe last-30-days range.
+
+`GET /dashboard/demand-trends` supports `interval=day|week|month` plus optional
+owned `product_id` and `category_id` filters. Soft-deleted sales transactions
+are excluded.
+
+`GET /dashboard/reorder-alerts` reads existing recommendation rows only. It can
+filter by owned `forecast_run_id`, `risk_level`, `status`, and `limit`.
+
 ## Pending Future Modules
 
-- Dashboard Analytics
 - Reports
+- Background Jobs
 - Settings
 
 ## Manual Browser Verification
@@ -249,7 +279,7 @@ analytics APIs.
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
 Protected Auth, Users, Products, Inventory, Sales Upload, Sales Transactions,
-Forecast Runs, ML Forecasting, Forecast Results, and Reorder Recommendations
-routes should be tested with `Authorization: Bearer <access_token>`. Use the
-refresh token only with `/auth/refresh` and `/auth/logout`; it should not be
-used as an access token.
+Forecast Runs, ML Forecasting, Forecast Results, Reorder Recommendations, and
+Dashboard Analytics routes should be tested with
+`Authorization: Bearer <access_token>`. Use the refresh token only with
+`/auth/refresh` and `/auth/logout`; it should not be used as an access token.

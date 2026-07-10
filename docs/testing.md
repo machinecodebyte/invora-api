@@ -51,6 +51,8 @@ Unit tests cover:
 - reorder recommendation formula, risk/action rules, regeneration policy,
   filter validation, sort validation, date range validation, and status
   transition validation
+- dashboard analytics date range, interval, limit, risk-level, and
+  recommendation-status validation
 
 ```powershell
 python3 -m pytest app/tests/unit
@@ -118,14 +120,18 @@ Integration tests cover:
 - reorder recommendation generation auth, completed-run guard, missing
   prediction guard, missing inventory guard, refresh behavior, user scoping,
   listing, run summary, detail, and acknowledge/dismiss status behavior
+- dashboard analytics auth, empty-state summary, KPI scoping, demand trend
+  aggregation and filters, inventory risk previews, forecast overview,
+  reorder alert filters, and recent activity feed behavior
 
 Auth and User Profile API tests use a deterministic fake repository through
 FastAPI dependency overrides. Product, Inventory, Sales Upload, Sales
 Transactions, Forecast Run, ML Forecasting, and Forecast Results API tests use
 deterministic fake repositories through the same override pattern. Reorder
 Recommendation API tests use the same fake auth/product/inventory/forecast
-repositories plus a fake recommendation repository. They do not touch
-production services.
+repositories plus a fake recommendation repository. Dashboard Analytics API
+tests use a fake dashboard repository that reads from the same fake module
+stores. They do not touch production services.
 
 ```powershell
 python3 -m pytest app/tests/integration
@@ -191,12 +197,19 @@ Run reorder recommendation tests only:
 python3 -m pytest app/tests/unit/test_recommendations.py app/tests/integration/test_recommendations_api.py
 ```
 
+Run dashboard analytics tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_dashboard.py app/tests/integration/test_dashboard_api.py
+```
+
 Protected route tests register a user through the Auth API, use the returned
 Bearer access token for Users, Products, Inventory, Sales Upload, and Sales
 Transactions, Forecast Run, ML Forecasting, Forecast Results, and Reorder
-Recommendations routes, and reuse fake repositories to verify profile,
-password, catalog, inventory, sales upload, sales transaction, forecast run, ML
-processing, forecast result query behavior, and recommendation generation.
+Recommendations, and Dashboard Analytics routes, and reuse fake repositories
+to verify profile, password, catalog, inventory, sales upload, sales
+transaction, forecast run, ML processing, forecast result query behavior,
+recommendation generation, and dashboard aggregation.
 
 ## DB-Dependent Test Flow
 
@@ -230,7 +243,7 @@ docker compose exec backend python -m pytest
 The completed-module regression suite currently covers Foundation, Auth &
 Identity, User Profile, Product Catalog, Inventory, Sales Upload, Sales
 Transactions, Forecast Run, ML Forecasting, Forecast Results, and Reorder
-Recommendations.
+Recommendations, and Dashboard Analytics.
 
 ## Future E2E Plan
 

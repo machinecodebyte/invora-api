@@ -192,6 +192,12 @@ Run reorder recommendation tests only:
 python3 -m pytest app/tests/unit/test_recommendations.py app/tests/integration/test_recommendations_api.py
 ```
 
+Run dashboard analytics tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_dashboard.py app/tests/integration/test_dashboard_api.py
+```
+
 Run health tests:
 
 ```powershell
@@ -374,6 +380,38 @@ Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <access_token>" } `
   -ContentType "application/json" `
   -Body '{"status":"acknowledged"}'
+```
+
+Manual dashboard analytics API check:
+
+```powershell
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/dashboard/summary'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/dashboard/kpis'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/dashboard/demand-trends?interval=week'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/dashboard/inventory-risk'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/dashboard/forecast-overview'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/dashboard/reorder-alerts?status=open&limit=10'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/dashboard/recent-activity'
 ```
 
 Browser URLs:

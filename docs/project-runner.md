@@ -337,3 +337,23 @@ Invoke-RestMethod `
 Recommendation generation reads Forecast Results and Inventory snapshots. It
 does not update stock quantities, change forecast run status, or create
 purchase orders.
+
+Verify Dashboard Analytics with the same Bearer access token:
+
+```powershell
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/dashboard/summary'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/dashboard/demand-trends?interval=week'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/dashboard/reorder-alerts'
+```
+
+Dashboard Analytics is read-only. It combines existing Products, Inventory,
+Sales, Forecast, and Recommendation data and does not create reports or mutate
+business records.
