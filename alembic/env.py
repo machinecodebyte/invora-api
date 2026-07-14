@@ -17,6 +17,7 @@ from app.modules.forecasting.infrastructure import (  # noqa: F401
 from app.modules.inventory.infrastructure import (  # noqa: F401
     models as inventory_models,
 )
+from app.modules.jobs.infrastructure import models as jobs_models  # noqa: F401
 from app.modules.products.infrastructure import models as product_models  # noqa: F401
 from app.modules.recommendations.infrastructure import (  # noqa: F401
     models as recommendation_models,

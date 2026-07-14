@@ -24,7 +24,7 @@ Authorization: Bearer <access_token>
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
    Products, Inventory, Sales Upload, Sales Transactions, Forecast Runs, ML
    Forecasting, Forecast Results, Reorder Recommendations, Dashboard
-   Analytics, or Reports endpoint.
+   Analytics, Reports, or Background Jobs endpoint.
 
 ## Current API Groups
 
@@ -41,6 +41,7 @@ Authorization: Bearer <access_token>
 - `Reorder Recommendations`
 - `Dashboard Analytics`
 - `Reports`
+- `Background Jobs`
 
 ## Auth APIs Implemented
 
@@ -299,6 +300,38 @@ mutate dashboard data, or implement settings.
 CSV exports return `text/csv` with a safe attachment filename and include only
 the authenticated user's report rows. PDF and Excel exports are future scope.
 
+## Background Jobs APIs Implemented
+
+- `POST /api/v1/jobs/forecast-runs/{run_id}`
+- `GET /api/v1/jobs`
+- `GET /api/v1/jobs/health`
+- `GET /api/v1/jobs/options`
+- `GET /api/v1/jobs/{job_id}`
+- `POST /api/v1/jobs/{job_id}/cancel`
+- `POST /api/v1/jobs/{job_id}/retry`
+
+Background Jobs APIs require `Authorization: Bearer <access_token>`. They move
+forecast processing outside the FastAPI request lifecycle by enqueueing a
+durable RQ job that calls the existing ML Forecasting service. The API does not
+duplicate ML training, prediction generation, or reorder calculation logic.
+
+Asynchronous flow:
+
+1. Create a pending forecast run with `POST /api/v1/forecast-runs`.
+2. Enqueue it with `POST /api/v1/jobs/forecast-runs/{run_id}`.
+3. Poll `GET /api/v1/jobs/{job_id}` until the durable status is `finished` or
+   `failed`.
+4. Read Forecast Results after the forecast run is completed.
+
+Only one active forecast-processing job can exist for the same forecast run.
+Repeated enqueue requests return the existing active job. Queued jobs can be
+cancelled safely; started jobs are not forcefully terminated and return a
+conflict. Manual retry is supported for failed jobs until the configured retry
+limit is reached.
+
+`GET /api/v1/jobs/health` returns safe Redis/RQ queue counts and worker names.
+It does not expose Redis credentials or internal stack traces.
+
 ## Pending Future Modules
 
 - Settings
@@ -308,8 +341,8 @@ the authenticated user's report rows. PDF and Excel exports are future scope.
 Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
 Protected Auth, Users, Products, Inventory, Sales Upload, Sales Transactions,
-Forecast Runs, ML Forecasting, Forecast Results, Reorder Recommendations, and
-Dashboard Analytics, and Reports routes should be tested with
+Forecast Runs, ML Forecasting, Forecast Results, Reorder Recommendations,
+Dashboard Analytics, Reports, and Background Jobs routes should be tested with
 `Authorization: Bearer <access_token>`. Use the refresh token only with
 `/auth/refresh` and `/auth/logout`; it should not be used as an access token.
 
@@ -320,4 +353,13 @@ GET /api/v1/reports/options
 GET /api/v1/reports/sales-summary?date_from=2026-07-01&date_to=2026-07-31
 GET /api/v1/reports/sales-summary?format=csv
 GET /api/v1/reports/demand-forecast?forecast_run_id=<run_id>
+```
+
+Manual Background Jobs checks:
+
+```text
+POST /api/v1/jobs/forecast-runs/<run_id>
+GET /api/v1/jobs/<job_id>
+GET /api/v1/jobs/health
+GET /api/v1/jobs/options
 ```

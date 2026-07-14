@@ -20,6 +20,25 @@ services:
     networks:
       - invora-network
 
+  invora-worker:
+    build:
+      context: .
+    container_name: invora-worker
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@invora-postgres:5432/invora
+      REDIS_URL: redis://invora-redis:6379/0
+    command: ["python", "-m", "app.modules.jobs.worker"]
+    depends_on:
+      invora-postgres:
+        condition: service_healthy
+      invora-redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - invora-network
+
   invora-postgres:
     image: postgres:16-alpine
     container_name: invora-postgres

@@ -51,10 +51,13 @@ port is busy, set `POSTGRES_HOST_PORT`, `REDIS_HOST_PORT`, or
 docker compose config
 docker compose up -d invora-postgres invora-redis
 docker compose up -d backend
+docker compose up -d invora-worker
 docker compose ps
 docker compose logs backend
+docker compose logs invora-worker
 docker compose logs invora-postgres
 docker compose logs invora-redis
+docker compose stop invora-worker
 docker compose down
 ```
 
@@ -62,8 +65,8 @@ Invora Docker resources are isolated as:
 
 ```text
 project: invora
-services: backend, invora-postgres, invora-redis
-containers: invora-backend, invora-postgres, invora-redis
+services: backend, invora-worker, invora-postgres, invora-redis
+containers: invora-backend, invora-worker, invora-postgres, invora-redis
 network: invora-network
 volumes: invora-postgres-data, invora-redis-data
 ```
@@ -88,6 +91,26 @@ Docker-only backend:
 ```powershell
 docker compose up -d invora-postgres invora-redis backend
 docker compose exec backend python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+## Run Worker
+
+```powershell
+python3 -m app.modules.jobs.worker
+```
+
+Windows launcher alternative:
+
+```powershell
+py -3 -m app.modules.jobs.worker
+```
+
+Docker worker:
+
+```powershell
+docker compose up -d invora-worker
+docker compose logs invora-worker
+docker compose stop invora-worker
 ```
 
 ## Alembic
@@ -202,6 +225,18 @@ Run reports tests only:
 
 ```powershell
 python3 -m pytest app/tests/unit/test_reports.py app/tests/integration/test_reports_api.py
+```
+
+Run background jobs tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_jobs.py app/tests/integration/test_jobs_api.py
+```
+
+Run worker/RQ integration tests:
+
+```powershell
+python3 -m pytest app/tests/unit/test_jobs.py -k rq
 ```
 
 Run health tests:
@@ -454,6 +489,31 @@ Manual reports CSV export check:
 curl.exe -L `
   -H "Authorization: Bearer <access_token>" `
   "http://127.0.0.1:8000/api/v1/reports/sales-summary?format=csv"
+```
+
+Manual background jobs API check:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://127.0.0.1:8000/api/v1/jobs/forecast-runs/<run_id>' `
+  -Headers @{ Authorization = "Bearer <access_token>" }
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/jobs/<job_id>'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/jobs/health'
+```
+
+Safe Redis/RQ inspection:
+
+```powershell
+docker compose exec invora-redis redis-cli ping
+docker compose exec backend python -m rq.cli info -u redis://invora-redis:6379/0
+docker compose exec backend python -m rq.cli info invora-forecasting -u redis://invora-redis:6379/0
 ```
 
 Browser URLs:

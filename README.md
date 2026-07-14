@@ -21,6 +21,7 @@ with FastAPI and async SQLAlchemy.
 - Reorder Recommendations Module
 - Dashboard Analytics Module
 - Reports Module
+- Background Jobs Module
 
 Pending modules include Settings.
 
@@ -59,13 +60,17 @@ Implemented now:
   derived from existing module data
 - Authenticated report APIs for model performance, inventory risk, reorder
   summary, demand forecast, and sales summary with optional CSV exports
+- Authenticated background job APIs for enqueueing forecast processing,
+  durable job status, queue health, safe queued cancellation, and manual retry
+- RQ worker entrypoint for processing forecast runs outside FastAPI requests
 - PBKDF2-HMAC password hashing
 - HS256 access tokens and hashed refresh-token persistence
 - Async SQLAlchemy 2.x setup for PostgreSQL
 - Alembic migrations for foundation, auth, user profile fields, product catalog
   tables, inventory tables, sales upload tables, and sales transaction
   soft-delete/query fields, forecast run lifecycle tables, and ML forecasting
-  prediction/metric tables, and reorder recommendation tables
+  prediction/metric tables, reorder recommendation tables, and background job
+  tracking table
 - Docker Compose services for PostgreSQL and Redis with configurable host ports
 - pandas, numpy, and scikit-learn for local ML forecasting
 - Pytest and Ruff setup
@@ -79,7 +84,7 @@ Implemented now:
 - SQLAlchemy 2.x async
 - PostgreSQL with asyncpg
 - Alembic
-- Redis configuration placeholder
+- Redis and RQ
 - Pytest, pytest-asyncio, httpx
 - Ruff
 - Docker Compose
@@ -134,12 +139,13 @@ Then run:
 docker compose up -d invora-postgres invora-redis
 python3 -m alembic upgrade head
 python3 -m uvicorn app.main:app --reload
+python3 -m app.modules.jobs.worker
 ```
 
 Docker-only backend path:
 
 ```powershell
-docker compose up -d invora-postgres invora-redis backend
+docker compose up -d invora-postgres invora-redis backend invora-worker
 docker compose exec backend python -m alembic upgrade head
 docker compose exec backend python -m pytest
 ```
@@ -217,9 +223,13 @@ http://127.0.0.1:8000/docs
   `/api/v1/reports/reorder-summary`,
   `/api/v1/reports/demand-forecast`,
   `/api/v1/reports/sales-summary`, `/api/v1/reports/options`
+- Background Jobs: `/api/v1/jobs/forecast-runs/{run_id}`,
+  `/api/v1/jobs`, `/api/v1/jobs/health`, `/api/v1/jobs/options`,
+  `/api/v1/jobs/{job_id}`, `/api/v1/jobs/{job_id}/cancel`,
+  `/api/v1/jobs/{job_id}/retry`
 
 ## Next Recommended Module
 
-Build the Settings Module next. Reports now exposes read-only export-friendly
-summaries for demo/viva workflows without changing Dashboard Analytics or
-business source data.
+Build the Settings Module next. Background Jobs now moves forecast processing
+outside the FastAPI request lifecycle without changing Forecast Results,
+Recommendations, Dashboard Analytics, Reports, or Settings.

@@ -83,7 +83,7 @@ docker compose up -d invora-postgres invora-redis
 Docker-only backend mode:
 
 ```powershell
-docker compose up -d invora-postgres invora-redis backend
+docker compose up -d invora-postgres invora-redis backend invora-worker
 ```
 
 Check service health:
@@ -96,8 +96,8 @@ Expected isolated Docker resources:
 
 ```text
 project: invora
-services: backend, invora-postgres, invora-redis
-containers: invora-backend, invora-postgres, invora-redis
+services: backend, invora-worker, invora-postgres, invora-redis
+containers: invora-backend, invora-worker, invora-postgres, invora-redis
 network: invora-network
 volumes: invora-postgres-data, invora-redis-data
 ```
@@ -139,6 +139,8 @@ and model quality summaries. The Reorder Recommendations migration creates
 completed forecast predictions and inventory snapshots.
 The Reports module is read-only and does not add report storage tables or a
 new migration.
+The Background Jobs migration creates `background_jobs` for durable RQ job
+tracking and keeps one active forecast-processing job per forecast run.
 
 ## 6. Start FastAPI
 
@@ -156,6 +158,25 @@ Docker-only backend is started with:
 
 ```powershell
 docker compose up -d backend
+```
+
+Start the RQ worker in a second terminal for local Python mode:
+
+```powershell
+python3 -m app.modules.jobs.worker
+```
+
+Windows launcher alternative:
+
+```powershell
+py -3 -m app.modules.jobs.worker
+```
+
+Docker-only worker mode:
+
+```powershell
+docker compose up -d invora-worker
+docker compose logs invora-worker
 ```
 
 API root:
@@ -379,3 +400,31 @@ curl.exe -L `
 Reports is read-only. It prepares structured JSON and CSV summaries from
 existing Products, Inventory, Sales, Forecast, and Recommendation data and does
 not mutate source records or implement settings.
+
+Verify Background Jobs with the same Bearer access token:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://127.0.0.1:8000/api/v1/jobs/forecast-runs/<run_id>' `
+  -Headers @{ Authorization = "Bearer <token>" }
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/jobs/<job_id>'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/jobs/health'
+```
+
+Background Jobs enqueue existing pending or failed forecast runs and execute
+the existing ML Forecasting service in the worker. The job detail endpoint is
+the durable polling source. If queue health returns `503`, check Redis and the
+worker without stopping unrelated containers:
+
+```powershell
+docker compose ps
+docker compose logs invora-worker
+docker compose exec invora-redis redis-cli ping
+```

@@ -55,6 +55,10 @@ Unit tests cover:
   recommendation-status validation
 - reports date range, export format, risk/status/stock-status filter, safe CSV
   filename, and CSV serialization validation
+- background job status transitions, cancellation rules, retry rules, retry
+  limits, RQ status mapping, safe sort validation, result summary
+  sanitization, retryable exception classification, worker success behavior,
+  worker failure behavior, and deterministic RQ SimpleWorker execution
 
 ```powershell
 python3 -m pytest app/tests/unit
@@ -129,6 +133,11 @@ Integration tests cover:
   reorder summary counts, demand forecast run ownership, sales summary
   aggregation, options metadata, CSV export, invalid format, and invalid date
   range behavior
+- background jobs auth, forecast-run enqueue, durable job creation, RQ job id
+  persistence, duplicate active enqueue idempotency, forecast-run ownership,
+  non-processable run rejection, user-scoped job listing/detail, queued
+  cancellation, failed-job retry, retry limit enforcement, queue unavailable
+  `503`, queue health, and options behavior
 
 Auth and User Profile API tests use a deterministic fake repository through
 FastAPI dependency overrides. Product, Inventory, Sales Upload, Sales
@@ -138,7 +147,9 @@ Recommendation API tests use the same fake auth/product/inventory/forecast
 repositories plus a fake recommendation repository. Dashboard Analytics API
 tests use a fake dashboard repository that reads from the same fake module
 stores. Reports API tests use a fake reports repository that reads the same
-fake module stores. They do not touch production services.
+fake module stores. Background Jobs API tests use a fake durable job repository
+and fake dispatcher so API behavior stays deterministic and never touches
+production Redis. They do not touch production services.
 
 ```powershell
 python3 -m pytest app/tests/integration
@@ -216,13 +227,26 @@ Run reports tests only:
 python3 -m pytest app/tests/unit/test_reports.py app/tests/integration/test_reports_api.py
 ```
 
+Run background jobs tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_jobs.py app/tests/integration/test_jobs_api.py
+```
+
+Run the RQ worker-boundary test only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_jobs.py -k rq
+```
+
 Protected route tests register a user through the Auth API, use the returned
 Bearer access token for Users, Products, Inventory, Sales Upload, and Sales
 Transactions, Forecast Run, ML Forecasting, Forecast Results, and Reorder
-Recommendations, Dashboard Analytics, and Reports routes, and reuse fake
+Recommendations, Dashboard Analytics, Reports, and Background Jobs routes, and reuse fake
 repositories to verify profile, password, catalog, inventory, sales upload,
 sales transaction, forecast run, ML processing, forecast result query behavior,
-recommendation generation, dashboard aggregation, and report generation.
+recommendation generation, dashboard aggregation, report generation, job
+enqueueing, job cancellation, and job retry behavior.
 
 ## DB-Dependent Test Flow
 
@@ -257,6 +281,8 @@ The completed-module regression suite currently covers Foundation, Auth &
 Identity, User Profile, Product Catalog, Inventory, Sales Upload, Sales
 Transactions, Forecast Run, ML Forecasting, Forecast Results, Reorder
 Recommendations, Dashboard Analytics, and Reports.
+Background Jobs tests add RQ queue/worker behavior without requiring a
+permanently running worker process.
 
 ## Future E2E Plan
 
