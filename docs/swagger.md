@@ -23,8 +23,8 @@ Authorization: Bearer <access_token>
 
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
    Products, Inventory, Sales Upload, Sales Transactions, Forecast Runs, ML
-   Forecasting, Forecast Results, Reorder Recommendations, or Dashboard
-   Analytics endpoint.
+   Forecasting, Forecast Results, Reorder Recommendations, Dashboard
+   Analytics, or Reports endpoint.
 
 ## Current API Groups
 
@@ -40,6 +40,7 @@ Authorization: Bearer <access_token>
 - `Forecast Results`
 - `Reorder Recommendations`
 - `Dashboard Analytics`
+- `Reports`
 
 ## Auth APIs Implemented
 
@@ -268,10 +269,38 @@ are excluded.
 `GET /dashboard/reorder-alerts` reads existing recommendation rows only. It can
 filter by owned `forecast_run_id`, `risk_level`, `status`, and `limit`.
 
+## Reports APIs Implemented
+
+- `GET /api/v1/reports/model-performance`
+- `GET /api/v1/reports/inventory-risk`
+- `GET /api/v1/reports/reorder-summary`
+- `GET /api/v1/reports/demand-forecast`
+- `GET /api/v1/reports/sales-summary`
+- `GET /api/v1/reports/options`
+
+Reports APIs require `Authorization: Bearer <access_token>`. They provide
+structured report-ready summaries for demo/viva workflows and optional CSV
+exports using `format=csv`. Default output is JSON with `format=json`.
+
+Report types:
+
+- Model Performance Report: forecast runs plus model metrics.
+- Inventory Risk Report: inventory stock-status counts and product rows.
+- Reorder Summary Report: recommendation risk/status summaries.
+- Demand Forecast Report: persisted forecast predictions for one owned
+  `forecast_run_id`.
+- Sales Summary Report: non-deleted Sales Transactions grouped by product.
+
+Dashboard Analytics remains the live dashboard layer for cards and charts.
+Reports is the export/reporting layer. Reports does not create products,
+mutate inventory, upload sales, process forecasts, generate recommendations,
+mutate dashboard data, or implement settings.
+
+CSV exports return `text/csv` with a safe attachment filename and include only
+the authenticated user's report rows. PDF and Excel exports are future scope.
+
 ## Pending Future Modules
 
-- Reports
-- Background Jobs
 - Settings
 
 ## Manual Browser Verification
@@ -280,6 +309,15 @@ Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
 Protected Auth, Users, Products, Inventory, Sales Upload, Sales Transactions,
 Forecast Runs, ML Forecasting, Forecast Results, Reorder Recommendations, and
-Dashboard Analytics routes should be tested with
+Dashboard Analytics, and Reports routes should be tested with
 `Authorization: Bearer <access_token>`. Use the refresh token only with
 `/auth/refresh` and `/auth/logout`; it should not be used as an access token.
+
+Manual Reports checks:
+
+```text
+GET /api/v1/reports/options
+GET /api/v1/reports/sales-summary?date_from=2026-07-01&date_to=2026-07-31
+GET /api/v1/reports/sales-summary?format=csv
+GET /api/v1/reports/demand-forecast?forecast_run_id=<run_id>
+```

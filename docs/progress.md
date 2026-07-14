@@ -14,6 +14,5 @@
 | Forecast Results Module | Completed | Exposes persisted forecast predictions and metrics through overview, prediction list, metrics, chart, and product detail APIs, tests, docs |
 | Reorder Recommendations Module | Completed | Generates user-scoped reorder decisions from completed forecast predictions plus inventory snapshots; includes risk levels, refresh, summaries, acknowledge/dismiss status, tests, docs |
 | Dashboard Analytics Module | Completed | Read-only authenticated dashboard aggregates for KPIs, demand trends, inventory risk, forecast overview, reorder alerts, and recent activity, tests, docs |
-| Reports Module | Pending | Requires export/reporting requirements |
-| Background Jobs Module | Pending | Redis placeholder exists; RQ integration pending |
+| Reports Module | Completed | Read-only authenticated report APIs for model performance, inventory risk, reorder summary, demand forecast, and sales summary with CSV export support, tests, docs |
 | Settings Module | Pending | Requires app/user settings requirements |

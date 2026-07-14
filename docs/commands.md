@@ -198,6 +198,12 @@ Run dashboard analytics tests only:
 python3 -m pytest app/tests/unit/test_dashboard.py app/tests/integration/test_dashboard_api.py
 ```
 
+Run reports tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_reports.py app/tests/integration/test_reports_api.py
+```
+
 Run health tests:
 
 ```powershell
@@ -412,6 +418,42 @@ Invoke-RestMethod `
 Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <access_token>" } `
   'http://127.0.0.1:8000/api/v1/dashboard/recent-activity'
+```
+
+Manual reports API check:
+
+```powershell
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/reports/options'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/reports/model-performance'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/reports/inventory-risk'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/reports/reorder-summary'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/reports/demand-forecast?forecast_run_id=<run_id>'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/reports/sales-summary?date_from=2026-07-01&date_to=2026-07-31'
+```
+
+Manual reports CSV export check:
+
+```powershell
+curl.exe -L `
+  -H "Authorization: Bearer <access_token>" `
+  "http://127.0.0.1:8000/api/v1/reports/sales-summary?format=csv"
 ```
 
 Browser URLs:

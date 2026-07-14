@@ -20,8 +20,9 @@ with FastAPI and async SQLAlchemy.
 - Forecast Results Module
 - Reorder Recommendations Module
 - Dashboard Analytics Module
+- Reports Module
 
-Pending modules include Reports, Background Jobs, and Settings.
+Pending modules include Settings.
 
 ## Current Scope
 
@@ -56,6 +57,8 @@ Implemented now:
 - Authenticated dashboard analytics APIs for KPI summary, demand trends,
   inventory risk, forecast overview, reorder alert preview, and recent activity
   derived from existing module data
+- Authenticated report APIs for model performance, inventory risk, reorder
+  summary, demand forecast, and sales summary with optional CSV exports
 - PBKDF2-HMAC password hashing
 - HS256 access tokens and hashed refresh-token persistence
 - Async SQLAlchemy 2.x setup for PostgreSQL
@@ -209,9 +212,14 @@ http://127.0.0.1:8000/docs
   `/api/v1/dashboard/forecast-overview`,
   `/api/v1/dashboard/reorder-alerts`,
   `/api/v1/dashboard/recent-activity`
+- Reports: `/api/v1/reports/model-performance`,
+  `/api/v1/reports/inventory-risk`,
+  `/api/v1/reports/reorder-summary`,
+  `/api/v1/reports/demand-forecast`,
+  `/api/v1/reports/sales-summary`, `/api/v1/reports/options`
 
 ## Next Recommended Module
 
-Build the Reports Module next. Dashboard Analytics now exposes read-only live
-analytics; Reports can layer downloadable/export-style summaries on top of the
-same clean module boundaries.
+Build the Settings Module next. Reports now exposes read-only export-friendly
+summaries for demo/viva workflows without changing Dashboard Analytics or
+business source data.

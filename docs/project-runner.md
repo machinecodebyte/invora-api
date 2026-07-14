@@ -137,6 +137,8 @@ migration adds soft-delete fields and query indexes to the existing
 and model quality summaries. The Reorder Recommendations migration creates
 `reorder_recommendations` for persisted reorder decisions generated from
 completed forecast predictions and inventory snapshots.
+The Reports module is read-only and does not add report storage tables or a
+new migration.
 
 ## 6. Start FastAPI
 
@@ -357,3 +359,23 @@ Invoke-RestMethod `
 Dashboard Analytics is read-only. It combines existing Products, Inventory,
 Sales, Forecast, and Recommendation data and does not create reports or mutate
 business records.
+
+Verify Reports with the same Bearer access token:
+
+```powershell
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/reports/options'
+
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/reports/sales-summary?date_from=2026-07-01&date_to=2026-07-31'
+
+curl.exe -L `
+  -H "Authorization: Bearer <token>" `
+  'http://127.0.0.1:8000/api/v1/reports/sales-summary?format=csv'
+```
+
+Reports is read-only. It prepares structured JSON and CSV summaries from
+existing Products, Inventory, Sales, Forecast, and Recommendation data and does
+not mutate source records or implement settings.

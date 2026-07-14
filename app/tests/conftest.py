@@ -2926,6 +2926,590 @@ class FakeDashboardAnalyticsRepository:
         }
 
 
+class FakeReportsRepository:
+    def __init__(
+        self,
+        *,
+        product_repository: FakeProductRepository,
+        inventory_repository: FakeInventoryRepository,
+        sales_repository: FakeSalesRepository,
+        forecast_repository: FakeForecastRunRepository,
+        recommendation_repository: FakeReorderRecommendationRepository,
+    ) -> None:
+        self.product_repository = product_repository
+        self.inventory_repository = inventory_repository
+        self.sales_repository = sales_repository
+        self.forecast_repository = forecast_repository
+        self.recommendation_repository = recommendation_repository
+
+    async def validate_product_for_user(
+        self,
+        *,
+        user_id: UUID,
+        product_id: UUID,
+    ) -> bool:
+        return (
+            await self.product_repository.get_product_by_id_for_user(
+                user_id=user_id,
+                product_id=product_id,
+            )
+            is not None
+        )
+
+    async def validate_category_for_user(
+        self,
+        *,
+        user_id: UUID,
+        category_id: UUID,
+    ) -> bool:
+        return (
+            await self.product_repository.get_category_by_id_for_user(
+                user_id=user_id,
+                category_id=category_id,
+            )
+            is not None
+        )
+
+    async def validate_forecast_run_for_user(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+    ) -> FakeForecastRun | None:
+        return await self.forecast_repository.get_forecast_run_for_user(
+            user_id=user_id,
+            run_id=forecast_run_id,
+        )
+
+    async def get_model_performance_summary_for_user(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, object]:
+        runs = self._forecast_runs(
+            user_id=user_id,
+            forecast_run_id=forecast_run_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        run_ids = {run.id for run in runs}
+        metrics = [
+            metric
+            for metric in self.forecast_repository.metrics_by_id.values()
+            if metric.user_id == user_id and metric.forecast_run_id in run_ids
+        ]
+        return {
+            "total_forecast_runs": len(runs),
+            "completed_forecast_runs": _count_attr(runs, "status", "completed"),
+            "failed_forecast_runs": _count_attr(runs, "status", "failed"),
+            "average_mae": _average_optional_decimal(
+                [metric.mae for metric in metrics]
+            ),
+            "average_rmse": _average_optional_decimal(
+                [metric.rmse for metric in metrics]
+            ),
+            "average_mape": _average_optional_decimal(
+                [metric.mape for metric in metrics]
+            ),
+        }
+
+    async def get_model_performance_rows_for_user(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> list[dict[str, object]]:
+        runs_by_id = {
+            run.id: run
+            for run in self._forecast_runs(
+                user_id=user_id,
+                forecast_run_id=forecast_run_id,
+                date_from=date_from,
+                date_to=date_to,
+            )
+        }
+        rows = [
+            self._metric_row(metric, runs_by_id[metric.forecast_run_id])
+            for metric in self.forecast_repository.metrics_by_id.values()
+            if metric.user_id == user_id and metric.forecast_run_id in runs_by_id
+        ]
+        rows.sort(
+            key=lambda row: (row["requested_at"], row["created_at"]),
+            reverse=True,
+        )
+        return rows
+
+    async def get_inventory_risk_summary_for_user(
+        self,
+        *,
+        user_id: UUID,
+        category_id: UUID | None,
+        stock_status: str | None,
+    ) -> dict[str, int]:
+        rows = self._inventory_items(
+            user_id=user_id,
+            category_id=category_id,
+            stock_status=stock_status,
+        )
+        statuses = [self._stock_status(item) for item in rows]
+        return {
+            "total_inventory_items": len(rows),
+            "low_stock_count": statuses.count("low_stock"),
+            "out_of_stock_count": statuses.count("out_of_stock"),
+            "healthy_stock_count": statuses.count("healthy"),
+            "inactive_inventory_count": statuses.count("inactive"),
+        }
+
+    async def get_inventory_risk_rows_for_user(
+        self,
+        *,
+        user_id: UUID,
+        category_id: UUID | None,
+        stock_status: str | None,
+    ) -> list[dict[str, object]]:
+        rows = [
+            self._inventory_report_row(item)
+            for item in self._inventory_items(
+                user_id=user_id,
+                category_id=category_id,
+                stock_status=stock_status,
+            )
+        ]
+        rows.sort(key=lambda row: str(row["sku"]).upper())
+        return rows
+
+    async def get_reorder_summary_counts_for_user(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID | None,
+        risk_level: str | None,
+        status: str | None,
+    ) -> dict[str, object]:
+        rows = self._recommendations(
+            user_id=user_id,
+            forecast_run_id=forecast_run_id,
+            risk_level=risk_level,
+            status=status,
+        )
+        return {
+            "total_recommendations": len(rows),
+            "open_recommendations": _count_attr(rows, "status", "open"),
+            "acknowledged_recommendations": _count_attr(
+                rows,
+                "status",
+                "acknowledged",
+            ),
+            "dismissed_recommendations": _count_attr(rows, "status", "dismissed"),
+            "critical_count": _count_attr(rows, "risk_level", "critical"),
+            "high_count": _count_attr(rows, "risk_level", "high"),
+            "medium_count": _count_attr(rows, "risk_level", "medium"),
+            "low_count": _count_attr(rows, "risk_level", "low"),
+            "overstocked_count": _count_attr(rows, "risk_level", "overstocked"),
+            "total_reorder_quantity": sum(
+                (row.reorder_quantity for row in rows),
+                Decimal("0.000"),
+            ),
+        }
+
+    async def get_reorder_summary_rows_for_user(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID | None,
+        risk_level: str | None,
+        status: str | None,
+    ) -> list[dict[str, object]]:
+        rows = [
+            self._recommendation_report_row(row)
+            for row in self._recommendations(
+                user_id=user_id,
+                forecast_run_id=forecast_run_id,
+                risk_level=risk_level,
+                status=status,
+            )
+        ]
+        rows.sort(
+            key=lambda row: (row["reorder_quantity"], row["generated_at"]),
+            reverse=True,
+        )
+        return rows
+
+    async def get_demand_forecast_summary_for_user(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+        product_id: UUID | None,
+        category_id: UUID | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> dict[str, object]:
+        predictions = self._predictions(
+            user_id=user_id,
+            forecast_run_id=forecast_run_id,
+            product_id=product_id,
+            category_id=category_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        total = sum(
+            (prediction.predicted_demand for prediction in predictions),
+            Decimal("0.000"),
+        )
+        dates = [prediction.forecast_date for prediction in predictions]
+        return {
+            "forecast_date_range": {
+                "date_from": min(dates) if dates else None,
+                "date_to": max(dates) if dates else None,
+            },
+            "total_products": len(
+                {prediction.product_id for prediction in predictions}
+            ),
+            "total_predicted_demand": total,
+            "average_predicted_demand": _average_decimal(total, len(predictions)),
+        }
+
+    async def get_demand_forecast_rows_for_user(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+        product_id: UUID | None,
+        category_id: UUID | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> list[dict[str, object]]:
+        rows = [
+            self._prediction_report_row(prediction)
+            for prediction in self._predictions(
+                user_id=user_id,
+                forecast_run_id=forecast_run_id,
+                product_id=product_id,
+                category_id=category_id,
+                date_from=date_from,
+                date_to=date_to,
+            )
+        ]
+        rows.sort(key=lambda row: (row["forecast_date"], row["sku"]))
+        return rows
+
+    async def get_sales_summary_totals_for_user(
+        self,
+        *,
+        user_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        product_id: UUID | None,
+        category_id: UUID | None,
+        channel: str | None,
+    ) -> dict[str, object]:
+        transactions = self._sales_transactions(
+            user_id=user_id,
+            date_from=date_from,
+            date_to=date_to,
+            product_id=product_id,
+            category_id=category_id,
+            channel=channel,
+        )
+        total_amount = sum(
+            (
+                transaction.total_amount or Decimal("0.00")
+                for transaction in transactions
+            ),
+            Decimal("0.00"),
+        )
+        total_quantity = sum(
+            (transaction.quantity for transaction in transactions),
+            Decimal("0.000"),
+        )
+        return {
+            "total_transactions": len(transactions),
+            "total_quantity_sold": total_quantity,
+            "total_sales_amount": total_amount,
+            "unique_products_sold": len(
+                {transaction.product_id for transaction in transactions}
+            ),
+            "average_transaction_amount": _average_decimal(
+                total_amount,
+                len(transactions),
+                places="0.01",
+            ),
+        }
+
+    async def get_sales_summary_rows_for_user(
+        self,
+        *,
+        user_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        product_id: UUID | None,
+        category_id: UUID | None,
+        channel: str | None,
+    ) -> list[dict[str, object]]:
+        rows_by_product: dict[UUID, dict[str, object]] = {}
+        for transaction in self._sales_transactions(
+            user_id=user_id,
+            date_from=date_from,
+            date_to=date_to,
+            product_id=product_id,
+            category_id=category_id,
+            channel=channel,
+        ):
+            product = transaction.product
+            category = self._category(product.category_id)
+            row = rows_by_product.setdefault(
+                product.id,
+                {
+                    "product_id": product.id,
+                    "product_name": product.name,
+                    "sku": product.sku,
+                    "category_id": product.category_id,
+                    "category_name": category.name if category else None,
+                    "total_quantity_sold": Decimal("0.000"),
+                    "total_sales_amount": Decimal("0.00"),
+                    "transaction_count": 0,
+                    "average_transaction_amount": Decimal("0.00"),
+                },
+            )
+            row["total_quantity_sold"] += transaction.quantity
+            row["total_sales_amount"] += transaction.total_amount or Decimal("0.00")
+            row["transaction_count"] += 1
+        for row in rows_by_product.values():
+            row["average_transaction_amount"] = _average_decimal(
+                row["total_sales_amount"],
+                row["transaction_count"],
+                places="0.01",
+            )
+        rows = list(rows_by_product.values())
+        rows.sort(key=lambda row: (row["total_sales_amount"], row["sku"]), reverse=True)
+        return rows
+
+    def _forecast_runs(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> list[FakeForecastRun]:
+        rows = [
+            run for run in self.forecast_repository.runs_by_id.values()
+            if run.user_id == user_id
+        ]
+        if forecast_run_id is not None:
+            rows = [run for run in rows if run.id == forecast_run_id]
+        if date_from is not None:
+            rows = [run for run in rows if run.requested_at.date() >= date_from]
+        if date_to is not None:
+            rows = [run for run in rows if run.requested_at.date() <= date_to]
+        return rows
+
+    def _inventory_items(
+        self,
+        *,
+        user_id: UUID,
+        category_id: UUID | None,
+        stock_status: str | None,
+    ) -> list[FakeInventoryItem]:
+        rows = [
+            item for item in self.inventory_repository.items_by_id.values()
+            if item.user_id == user_id
+        ]
+        if category_id is not None:
+            rows = [item for item in rows if item.product.category_id == category_id]
+        if stock_status is not None:
+            rows = [item for item in rows if self._stock_status(item) == stock_status]
+        return rows
+
+    def _recommendations(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID | None,
+        risk_level: str | None,
+        status: str | None,
+    ) -> list[FakeReorderRecommendation]:
+        rows = [
+            row for row in self.recommendation_repository.recommendations_by_id.values()
+            if row.user_id == user_id
+        ]
+        if forecast_run_id is not None:
+            rows = [row for row in rows if row.forecast_run_id == forecast_run_id]
+        if risk_level is not None:
+            rows = [row for row in rows if row.risk_level == risk_level]
+        if status is not None:
+            rows = [row for row in rows if row.status == status]
+        return rows
+
+    def _predictions(
+        self,
+        *,
+        user_id: UUID,
+        forecast_run_id: UUID,
+        product_id: UUID | None,
+        category_id: UUID | None,
+        date_from: date | None,
+        date_to: date | None,
+    ) -> list[FakeForecastPrediction]:
+        rows = [
+            prediction
+            for prediction in self.forecast_repository.predictions_by_id.values()
+            if prediction.user_id == user_id
+            and prediction.forecast_run_id == forecast_run_id
+        ]
+        if product_id is not None:
+            rows = [
+                prediction for prediction in rows if prediction.product_id == product_id
+            ]
+        if category_id is not None:
+            rows = [
+                prediction for prediction in rows
+                if self.product_repository.products_by_id[
+                    prediction.product_id
+                ].category_id == category_id
+            ]
+        if date_from is not None:
+            rows = [
+                prediction
+                for prediction in rows
+                if prediction.forecast_date >= date_from
+            ]
+        if date_to is not None:
+            rows = [
+                prediction
+                for prediction in rows
+                if prediction.forecast_date <= date_to
+            ]
+        return rows
+
+    def _sales_transactions(
+        self,
+        *,
+        user_id: UUID,
+        date_from: date | None,
+        date_to: date | None,
+        product_id: UUID | None,
+        category_id: UUID | None,
+        channel: str | None,
+    ) -> list[FakeSalesTransaction]:
+        rows = [
+            transaction
+            for transaction in self.sales_repository.transactions_by_id.values()
+            if transaction.user_id == user_id and transaction.deleted_at is None
+        ]
+        if date_from is not None:
+            rows = [row for row in rows if row.sale_date >= date_from]
+        if date_to is not None:
+            rows = [row for row in rows if row.sale_date <= date_to]
+        if product_id is not None:
+            rows = [row for row in rows if row.product_id == product_id]
+        if category_id is not None:
+            rows = [row for row in rows if row.product.category_id == category_id]
+        if channel is not None:
+            rows = [row for row in rows if row.channel == channel]
+        return rows
+
+    def _metric_row(
+        self,
+        metric: FakeForecastMetric,
+        run: FakeForecastRun,
+    ) -> dict[str, object]:
+        return {
+            "forecast_run_id": run.id,
+            "status": run.status,
+            "horizon_days": run.horizon_days,
+            "requested_at": run.requested_at,
+            "completed_at": run.completed_at,
+            "model_name": metric.model_name,
+            "mae": metric.mae,
+            "rmse": metric.rmse,
+            "mape": metric.mape,
+            "training_rows": metric.training_rows,
+            "validation_rows": metric.validation_rows,
+            "total_products": metric.total_products,
+            "fallback_products": metric.fallback_products,
+            "created_at": metric.created_at,
+        }
+
+    def _inventory_report_row(self, item: FakeInventoryItem) -> dict[str, object]:
+        category = self._category(item.product.category_id)
+        return {
+            "product_id": item.product_id,
+            "product_name": item.product.name,
+            "sku": item.product.sku,
+            "category_id": item.product.category_id,
+            "category_name": category.name if category else None,
+            "current_stock": item.current_stock,
+            "minimum_stock": item.minimum_stock,
+            "safety_stock": item.safety_stock,
+            "stock_status": self._stock_status(item),
+        }
+
+    def _recommendation_report_row(
+        self,
+        recommendation: FakeReorderRecommendation,
+    ) -> dict[str, object]:
+        product = self.product_repository.products_by_id[recommendation.product_id]
+        category = self._category(product.category_id)
+        return {
+            "id": recommendation.id,
+            "forecast_run_id": recommendation.forecast_run_id,
+            "product_id": recommendation.product_id,
+            "product_name": product.name,
+            "sku": product.sku,
+            "category_id": product.category_id,
+            "category_name": category.name if category else None,
+            "predicted_demand": recommendation.predicted_demand,
+            "current_stock": recommendation.current_stock,
+            "minimum_stock": recommendation.minimum_stock,
+            "safety_stock": recommendation.safety_stock,
+            "required_stock": recommendation.required_stock,
+            "reorder_quantity": recommendation.reorder_quantity,
+            "risk_level": recommendation.risk_level,
+            "recommended_action": recommendation.recommended_action,
+            "status": recommendation.status,
+            "generated_at": recommendation.generated_at,
+        }
+
+    def _prediction_report_row(
+        self,
+        prediction: FakeForecastPrediction,
+    ) -> dict[str, object]:
+        product = self.product_repository.products_by_id[prediction.product_id]
+        category = self._category(product.category_id)
+        return {
+            "product_id": prediction.product_id,
+            "product_name": product.name,
+            "sku": product.sku,
+            "category_id": product.category_id,
+            "category_name": category.name if category else None,
+            "forecast_date": prediction.forecast_date,
+            "predicted_demand": prediction.predicted_demand,
+            "model_name": prediction.model_name,
+        }
+
+    def _stock_status(self, item: FakeInventoryItem) -> str:
+        from app.modules.inventory.domain.stock import calculate_stock_status
+
+        status = calculate_stock_status(
+            current_stock=item.current_stock,
+            minimum_stock=item.minimum_stock,
+            is_active=item.is_active,
+        )
+        return "healthy" if status == "in_stock" else status
+
+    def _category(self, category_id: UUID | None) -> FakeProductCategory | None:
+        if category_id is None:
+            return None
+        return self.product_repository.categories_by_id.get(category_id)
+
+
 def _product_sort_value(product: FakeProduct, sort_by: str) -> object:
     if sort_by == "name":
         return product.normalized_name
@@ -3007,6 +3591,24 @@ def _count_attr(rows: list[object], field_name: str, expected: object) -> int:
     return sum(1 for row in rows if getattr(row, field_name) == expected)
 
 
+def _average_optional_decimal(values: list[Decimal | None]) -> Decimal | None:
+    decimals = [value for value in values if value is not None]
+    if not decimals:
+        return None
+    return sum(decimals, Decimal("0")) / Decimal(len(decimals))
+
+
+def _average_decimal(
+    total: Decimal,
+    count: int,
+    *,
+    places: str = "0.001",
+) -> Decimal:
+    if count <= 0:
+        return Decimal(places)
+    return (total / Decimal(count)).quantize(Decimal(places))
+
+
 @pytest.fixture
 def auth_repository() -> FakeAuthRepository:
     return FakeAuthRepository()
@@ -3062,6 +3664,23 @@ def dashboard_repository(
     recommendation_repository,
 ) -> FakeDashboardAnalyticsRepository:
     return FakeDashboardAnalyticsRepository(
+        product_repository=product_repository,
+        inventory_repository=inventory_repository,
+        sales_repository=sales_repository,
+        forecast_repository=forecast_repository,
+        recommendation_repository=recommendation_repository,
+    )
+
+
+@pytest.fixture
+def reports_repository(
+    product_repository,
+    inventory_repository,
+    sales_repository,
+    forecast_repository,
+    recommendation_repository,
+) -> FakeReportsRepository:
+    return FakeReportsRepository(
         product_repository=product_repository,
         inventory_repository=inventory_repository,
         sales_repository=sales_repository,
@@ -3410,6 +4029,73 @@ async def dashboard_client(
     app.dependency_overrides[get_dashboard_analytics_service] = (
         override_dashboard_service
     )
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    app.dependency_overrides.clear()
+    await close_database_engine()
+
+
+@pytest.fixture
+async def reports_client(
+    app,
+    auth_repository,
+    product_repository,
+    inventory_repository,
+    sales_repository,
+    reports_repository,
+) -> AsyncGenerator[AsyncClient, None]:
+    from app.core.config import get_settings
+    from app.db.session import close_database_engine
+    from app.modules.auth.api.dependencies import get_auth_service
+    from app.modules.auth.application.service import AuthService
+    from app.modules.inventory.api.dependencies import get_inventory_service
+    from app.modules.inventory.application.service import InventoryService
+    from app.modules.products.api.dependencies import get_product_service
+    from app.modules.products.application.service import ProductService
+    from app.modules.reports.api.dependencies import get_reports_service
+    from app.modules.reports.application.service import ReportsService
+    from app.modules.sales.api.dependencies import (
+        get_sales_transaction_service,
+        get_sales_upload_service,
+    )
+    from app.modules.sales.application.service import (
+        SalesTransactionService,
+        SalesUploadService,
+    )
+    from app.modules.users.api.dependencies import get_user_profile_service
+    from app.modules.users.application.service import UserProfileService
+
+    async def override_auth_service() -> AuthService:
+        return AuthService(repository=auth_repository, settings=get_settings())
+
+    async def override_user_profile_service() -> UserProfileService:
+        return UserProfileService(repository=auth_repository)
+
+    async def override_product_service() -> ProductService:
+        return ProductService(repository=product_repository)
+
+    async def override_inventory_service() -> InventoryService:
+        return InventoryService(repository=inventory_repository)
+
+    async def override_sales_upload_service() -> SalesUploadService:
+        return SalesUploadService(repository=sales_repository)
+
+    async def override_sales_transaction_service() -> SalesTransactionService:
+        return SalesTransactionService(repository=sales_repository)
+
+    async def override_reports_service() -> ReportsService:
+        return ReportsService(repository=reports_repository)
+
+    app.dependency_overrides[get_auth_service] = override_auth_service
+    app.dependency_overrides[get_user_profile_service] = override_user_profile_service
+    app.dependency_overrides[get_product_service] = override_product_service
+    app.dependency_overrides[get_inventory_service] = override_inventory_service
+    app.dependency_overrides[get_sales_upload_service] = override_sales_upload_service
+    app.dependency_overrides[get_sales_transaction_service] = (
+        override_sales_transaction_service
+    )
+    app.dependency_overrides[get_reports_service] = override_reports_service
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
