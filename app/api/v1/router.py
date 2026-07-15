@@ -12,6 +12,7 @@ from app.modules.products.api.routes import router as products_router
 from app.modules.recommendations.api.routes import router as recommendations_router
 from app.modules.reports.api.routes import router as reports_router
 from app.modules.sales.api.routes import router as sales_router
+from app.modules.settings.api.routes import router as settings_router
 from app.modules.users.api.routes import router as users_router
 
 api_router = APIRouter()
@@ -27,4 +28,5 @@ api_router.include_router(recommendations_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(reports_router)
 api_router.include_router(jobs_router)
+api_router.include_router(settings_router)
 api_router.include_router(health.router, tags=["health"])

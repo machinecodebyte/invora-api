@@ -141,6 +141,9 @@ The Reports module is read-only and does not add report storage tables or a
 new migration.
 The Background Jobs migration creates `background_jobs` for durable RQ job
 tracking and keeps one active forecast-processing job per forecast run.
+The System Settings migration creates `user_system_settings`, with one safe
+settings row per user and PostgreSQL conflict handling for concurrent first
+reads.
 
 ## 6. Start FastAPI
 
@@ -427,4 +430,28 @@ worker without stopping unrelated containers:
 docker compose ps
 docker compose logs invora-worker
 docker compose exec invora-redis redis-cli ping
+```
+
+Verify System Settings with the same Bearer access token. These values are
+stored user preferences; they do not expose secrets or immediately change other
+module behavior:
+
+```powershell
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  'http://127.0.0.1:8000/api/v1/settings'
+
+Invoke-RestMethod `
+  -Method Patch `
+  -Uri 'http://127.0.0.1:8000/api/v1/settings/forecast' `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  -ContentType "application/json" `
+  -Body '{"forecast_default_horizon_days":15,"forecast_default_model":"baseline"}'
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://127.0.0.1:8000/api/v1/settings/reset' `
+  -Headers @{ Authorization = "Bearer <token>" } `
+  -ContentType "application/json" `
+  -Body '{"category":"forecast"}'
 ```

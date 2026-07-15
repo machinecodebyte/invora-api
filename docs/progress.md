@@ -16,4 +16,4 @@
 | Dashboard Analytics Module | Completed | Read-only authenticated dashboard aggregates for KPIs, demand trends, inventory risk, forecast overview, reorder alerts, and recent activity, tests, docs |
 | Reports Module | Completed | Read-only authenticated report APIs for model performance, inventory risk, reorder summary, demand forecast, and sales summary with CSV export support, tests, docs |
 | Background Jobs Module | Completed | Durable RQ-backed forecast processing jobs with status APIs, safe queued cancellation, manual retry, worker entrypoint, Docker worker service, tests, docs |
-| Settings Module | Pending | Requires app/user settings requirements |
+| System Settings Module | Completed | User-scoped, safe business preferences with defaults, category reset, strict validation, concurrency-safe creation, tests, and docs |

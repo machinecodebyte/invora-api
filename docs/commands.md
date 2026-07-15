@@ -233,6 +233,14 @@ Run background jobs tests only:
 python3 -m pytest app/tests/unit/test_jobs.py app/tests/integration/test_jobs_api.py
 ```
 
+Run System Settings tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_settings.py app/tests/integration/test_settings_api.py
+py -3 -m pytest app/tests/unit/test_settings.py app/tests/integration/test_settings_api.py
+docker compose exec backend python -m pytest app/tests/unit/test_settings.py app/tests/integration/test_settings_api.py
+```
+
 Run worker/RQ integration tests:
 
 ```powershell
@@ -506,6 +514,28 @@ Invoke-RestMethod `
 Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer <access_token>" } `
   'http://127.0.0.1:8000/api/v1/jobs/health'
+```
+
+Manual System Settings API check:
+
+```powershell
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  'http://127.0.0.1:8000/api/v1/settings'
+
+Invoke-RestMethod `
+  -Method Patch `
+  -Uri 'http://127.0.0.1:8000/api/v1/settings/forecast' `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  -ContentType "application/json" `
+  -Body '{"forecast_default_horizon_days":15,"forecast_default_model":"baseline"}'
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://127.0.0.1:8000/api/v1/settings/reset' `
+  -Headers @{ Authorization = "Bearer <access_token>" } `
+  -ContentType "application/json" `
+  -Body '{"category":"forecast"}'
 ```
 
 Safe Redis/RQ inspection:

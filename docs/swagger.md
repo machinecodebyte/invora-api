@@ -24,7 +24,7 @@ Authorization: Bearer <access_token>
 4. Call `GET /api/v1/auth/me`, `GET /api/v1/users/me`, or a protected
    Products, Inventory, Sales Upload, Sales Transactions, Forecast Runs, ML
    Forecasting, Forecast Results, Reorder Recommendations, Dashboard
-   Analytics, Reports, or Background Jobs endpoint.
+   Analytics, Reports, Background Jobs, or System Settings endpoint.
 
 ## Current API Groups
 
@@ -42,6 +42,7 @@ Authorization: Bearer <access_token>
 - `Dashboard Analytics`
 - `Reports`
 - `Background Jobs`
+- `System Settings`
 
 ## Auth APIs Implemented
 
@@ -332,9 +333,41 @@ limit is reached.
 `GET /api/v1/jobs/health` returns safe Redis/RQ queue counts and worker names.
 It does not expose Redis credentials or internal stack traces.
 
-## Pending Future Modules
+## System Settings APIs Implemented
 
-- Settings
+- `GET /api/v1/settings`
+- `PATCH /api/v1/settings`
+- `POST /api/v1/settings/reset`
+- `GET /api/v1/settings/forecast`
+- `PATCH /api/v1/settings/forecast`
+- `GET /api/v1/settings/inventory`
+- `PATCH /api/v1/settings/inventory`
+- `GET /api/v1/settings/sales-upload`
+- `PATCH /api/v1/settings/sales-upload`
+- `GET /api/v1/settings/reports`
+- `PATCH /api/v1/settings/reports`
+- `GET /api/v1/settings/dashboard`
+- `PATCH /api/v1/settings/dashboard`
+- `GET /api/v1/settings/background-jobs`
+- `PATCH /api/v1/settings/background-jobs`
+- `GET /api/v1/settings/options`
+
+System Settings APIs require `Authorization: Bearer <access_token>` and are
+always scoped to that authenticated user. A first read safely creates the
+user's default settings row. The settings categories are `forecast`,
+`inventory`, `sales_upload`, `reports`, `dashboard`, `background_jobs`, and
+`localization`; `POST /settings/reset` resets all categories or one category.
+
+Only safe business preferences are available: forecast defaults, inventory
+threshold defaults, sales-upload preferences, report and dashboard preferences,
+the future-facing background-job auto-retry preference, timezone, locale, and
+small safe metadata. JWT secrets, database/Redis URLs, API keys, Docker ports,
+CORS, debug/log settings, connection pools, and worker internals are never
+returned or accepted.
+
+Settings currently store preferences only. They do not start forecasts, alter
+inventory balances, change sales uploads, generate reports, alter dashboard
+queries, or rewrite existing RQ retry behavior.
 
 ## Manual Browser Verification
 
@@ -342,7 +375,8 @@ Use Swagger UI at `/docs` to inspect request and response schemas. For protected
 routes, register or login first, then pass the access token as a Bearer token.
 Protected Auth, Users, Products, Inventory, Sales Upload, Sales Transactions,
 Forecast Runs, ML Forecasting, Forecast Results, Reorder Recommendations,
-Dashboard Analytics, Reports, and Background Jobs routes should be tested with
+Dashboard Analytics, Reports, Background Jobs, and System Settings routes should
+be tested with
 `Authorization: Bearer <access_token>`. Use the refresh token only with
 `/auth/refresh` and `/auth/logout`; it should not be used as an access token.
 
@@ -362,4 +396,13 @@ POST /api/v1/jobs/forecast-runs/<run_id>
 GET /api/v1/jobs/<job_id>
 GET /api/v1/jobs/health
 GET /api/v1/jobs/options
+```
+
+Manual System Settings checks:
+
+```text
+GET /api/v1/settings
+PATCH /api/v1/settings/forecast
+POST /api/v1/settings/reset
+GET /api/v1/settings/options
 ```

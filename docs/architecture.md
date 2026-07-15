@@ -47,5 +47,6 @@ The current backend includes foundation, auth, user profile, products,
 inventory, sales upload, sales transactions, forecast run, ML forecasting,
 forecast results, reorder recommendations, dashboard analytics, and reports
 modules. The Background Jobs module adds durable RQ orchestration for forecast
-processing while reusing the existing ML Forecasting service. Settings remains
-pending.
+processing while reusing the existing ML Forecasting service. The System
+Settings module stores authenticated users' safe business preferences without
+exposing deployment configuration or mutating existing module behavior.

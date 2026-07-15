@@ -59,6 +59,9 @@ Unit tests cover:
   limits, RQ status mapping, safe sort validation, result summary
   sanitization, retryable exception classification, worker success behavior,
   worker failure behavior, and deterministic RQ SimpleWorker execution
+- system settings defaults, all supported values and bounds, stock precision,
+  timezone/locale validation, protected/unknown field rejection, metadata
+  safety, category reset, full reset, and concurrent first-read behavior
 
 ```powershell
 python3 -m pytest app/tests/unit
@@ -138,6 +141,10 @@ Integration tests cover:
   non-processable run rejection, user-scoped job listing/detail, queued
   cancellation, failed-job retry, retry limit enforcement, queue unavailable
   `503`, queue health, and options behavior
+- system settings auth, first-read default creation, no-secret response shape,
+  full and category updates, protected/unknown field rejection, all reset,
+  category reset, user scoping, options, category validation, and concurrent
+  first reads
 
 Auth and User Profile API tests use a deterministic fake repository through
 FastAPI dependency overrides. Product, Inventory, Sales Upload, Sales
@@ -149,7 +156,10 @@ tests use a fake dashboard repository that reads from the same fake module
 stores. Reports API tests use a fake reports repository that reads the same
 fake module stores. Background Jobs API tests use a fake durable job repository
 and fake dispatcher so API behavior stays deterministic and never touches
-production Redis. They do not touch production services.
+production Redis. They do not touch production services. System Settings API
+tests use a deterministic user-scoped settings repository; the production
+repository uses PostgreSQL `INSERT ... ON CONFLICT DO NOTHING` to preserve the
+same one-row-per-user guarantee under concurrent first reads.
 
 ```powershell
 python3 -m pytest app/tests/integration
@@ -233,6 +243,14 @@ Run background jobs tests only:
 python3 -m pytest app/tests/unit/test_jobs.py app/tests/integration/test_jobs_api.py
 ```
 
+Run System Settings tests only:
+
+```powershell
+python3 -m pytest app/tests/unit/test_settings.py app/tests/integration/test_settings_api.py
+py -3 -m pytest app/tests/unit/test_settings.py app/tests/integration/test_settings_api.py
+docker compose exec backend python -m pytest app/tests/unit/test_settings.py app/tests/integration/test_settings_api.py
+```
+
 Run the RQ worker-boundary test only:
 
 ```powershell
@@ -280,9 +298,11 @@ docker compose exec backend python -m pytest
 The completed-module regression suite currently covers Foundation, Auth &
 Identity, User Profile, Product Catalog, Inventory, Sales Upload, Sales
 Transactions, Forecast Run, ML Forecasting, Forecast Results, Reorder
-Recommendations, Dashboard Analytics, and Reports.
+Recommendations, Dashboard Analytics, Reports, Background Jobs, and System
+Settings.
 Background Jobs tests add RQ queue/worker behavior without requiring a
-permanently running worker process.
+permanently running worker process. System Settings tests run without a live
+database or Redis dependency; the database migration is checked separately.
 
 ## Future E2E Plan
 

@@ -22,8 +22,9 @@ with FastAPI and async SQLAlchemy.
 - Dashboard Analytics Module
 - Reports Module
 - Background Jobs Module
+- System Settings Module
 
-Pending modules include Settings.
+All planned backend modules through System Settings are implemented.
 
 ## Current Scope
 
@@ -63,6 +64,8 @@ Implemented now:
 - Authenticated background job APIs for enqueueing forecast processing,
   durable job status, queue health, safe queued cancellation, and manual retry
 - RQ worker entrypoint for processing forecast runs outside FastAPI requests
+- Authenticated user-scoped system settings for forecast, inventory, sales
+  upload, reports, dashboard, background-job, and localization preferences
 - PBKDF2-HMAC password hashing
 - HS256 access tokens and hashed refresh-token persistence
 - Async SQLAlchemy 2.x setup for PostgreSQL
@@ -70,7 +73,7 @@ Implemented now:
   tables, inventory tables, sales upload tables, and sales transaction
   soft-delete/query fields, forecast run lifecycle tables, and ML forecasting
   prediction/metric tables, reorder recommendation tables, and background job
-  tracking table
+  tracking table, plus the `user_system_settings` table
 - Docker Compose services for PostgreSQL and Redis with configurable host ports
 - pandas, numpy, and scikit-learn for local ML forecasting
 - Pytest and Ruff setup
@@ -227,9 +230,16 @@ http://127.0.0.1:8000/docs
   `/api/v1/jobs`, `/api/v1/jobs/health`, `/api/v1/jobs/options`,
   `/api/v1/jobs/{job_id}`, `/api/v1/jobs/{job_id}/cancel`,
   `/api/v1/jobs/{job_id}/retry`
+- System Settings: `/api/v1/settings`, `/api/v1/settings/reset`,
+  `/api/v1/settings/options`, `/api/v1/settings/forecast`,
+  `/api/v1/settings/inventory`, `/api/v1/settings/sales-upload`,
+  `/api/v1/settings/reports`, `/api/v1/settings/dashboard`,
+  `/api/v1/settings/background-jobs`
 
-## Next Recommended Module
+## Current Backend Status
 
-Build the Settings Module next. Background Jobs now moves forecast processing
-outside the FastAPI request lifecycle without changing Forecast Results,
-Recommendations, Dashboard Analytics, Reports, or Settings.
+System Settings stores safe, user-owned preferences only. It does not expose
+or mutate secrets, deployment configuration, Docker resources, queue internals,
+or existing business data. Preferences are stored for safe future integrations;
+the existing Forecast, Inventory, Reports, Dashboard, and Background Jobs APIs
+retain their current behavior.

@@ -23,6 +23,7 @@ from app.modules.recommendations.infrastructure import (  # noqa: F401
     models as recommendation_models,
 )
 from app.modules.sales.infrastructure import models as sales_models  # noqa: F401
+from app.modules.settings.infrastructure import models as settings_models  # noqa: F401
 
 config = context.config
 
