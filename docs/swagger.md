@@ -2,12 +2,12 @@
 
 ## URLs
 
-Start the backend, then open:
+Start the backend, then open the URLs using the configured `API_PORT`:
 
 ```text
-Swagger UI: http://127.0.0.1:8000/docs
-ReDoc:      http://127.0.0.1:8000/redoc
-OpenAPI:   http://127.0.0.1:8000/openapi.json
+Swagger UI: http://127.0.0.1:<API_PORT>/docs
+ReDoc:      http://127.0.0.1:<API_PORT>/redoc
+OpenAPI:    http://127.0.0.1:<API_PORT>/openapi.json
 ```
 
 ## Authorizing With Bearer Token
@@ -29,7 +29,7 @@ Authorization: Bearer <access_token>
 ## Current API Groups
 
 - `Health`
-- `auth`
+- `Auth`
 - `Users`
 - `Products`
 - `Inventory`

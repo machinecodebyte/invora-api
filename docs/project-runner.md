@@ -5,7 +5,8 @@ Follow these steps from the `backend/` directory.
 Supported run modes:
 
 1. Local Unix/macOS/Linux with `python3 -m ...`
-2. Local Windows with `py -3 -m ...`
+2. Local Windows with `py -3 -m venv .venv`, then
+   `.\.venv\Scripts\python.exe -m ...`
 3. Docker-only mode with `docker compose exec backend python -m ...`
 
 ## 1. Create the Environment File
@@ -16,6 +17,10 @@ Copy-Item .env.example .env
 
 Review `.env` and keep secrets out of source control. `JWT_SECRET_KEY` must be
 changed before any shared or deployed environment.
+
+See [Configuration](configuration.md) for local, Docker, and hosted-service
+database/Redis URLs. Local Python reads `DATABASE_URL`; Docker receives
+`DOCKER_DATABASE_URL` as its internal `DATABASE_URL`.
 
 ## 2. Install Dependencies
 
@@ -30,9 +35,8 @@ Windows launcher alternative:
 
 ```powershell
 py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-py -3 -m pip install --upgrade pip
-py -3 -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
 ## 3. Check Local Ports
@@ -44,6 +48,7 @@ Docker services:
 Get-NetTCPConnection -LocalPort 5432 -ErrorAction SilentlyContinue
 Get-NetTCPConnection -LocalPort 56379 -ErrorAction SilentlyContinue
 Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
+Get-NetTCPConnection -LocalPort 8001 -ErrorAction SilentlyContinue
 docker ps
 ```
 
@@ -59,8 +64,10 @@ selected host ports:
 POSTGRES_HOST_PORT=5433
 REDIS_HOST_PORT=56380
 BACKEND_HOST_PORT=8001
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/invora
-REDIS_URL=redis://localhost:56380/0
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:${POSTGRES_HOST_PORT}/invora
+REDIS_URL=redis://localhost:${REDIS_HOST_PORT}/0
+API_HOST=127.0.0.1
+API_PORT=8001
 ```
 
 For backend running locally, use `localhost:${POSTGRES_HOST_PORT}` and
@@ -112,8 +119,8 @@ python3 -m alembic current
 Windows launcher alternative:
 
 ```powershell
-py -3 -m alembic upgrade head
-py -3 -m alembic current
+.\.venv\Scripts\python.exe -m alembic upgrade head
+.\.venv\Scripts\python.exe -m alembic current
 ```
 
 Docker-only migration:
@@ -148,13 +155,14 @@ reads.
 ## 6. Start FastAPI
 
 ```powershell
-python3 -m uvicorn app.main:app --reload
+.\.venv\Scripts\python.exe -m app.server
 ```
 
-Windows launcher alternative:
+Windows PowerShell:
 
 ```powershell
-py -3 -m uvicorn app.main:app --reload
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+# Add --reload for local development when the selected port is available.
 ```
 
 Docker-only backend is started with:
@@ -172,7 +180,7 @@ python3 -m app.modules.jobs.worker
 Windows launcher alternative:
 
 ```powershell
-py -3 -m app.modules.jobs.worker
+.\.venv\Scripts\python.exe -m app.modules.jobs.worker
 ```
 
 Docker-only worker mode:
@@ -182,29 +190,31 @@ docker compose up -d invora-worker
 docker compose logs invora-worker
 ```
 
-API root:
+API root uses `API_HOST` and `API_PORT`. The local `.env` currently uses:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:8001
 ```
 
 Swagger UI:
 
 ```text
-http://127.0.0.1:8000/docs
-http://127.0.0.1:8000/redoc
-http://127.0.0.1:8000/openapi.json
+http://127.0.0.1:8001/docs
+http://127.0.0.1:8001/redoc
+http://127.0.0.1:8001/openapi.json
 ```
 
 ## 7. Verify Health APIs
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/api/v1/health
-Invoke-RestMethod http://127.0.0.1:8000/api/v1/health/ready
+Invoke-RestMethod http://127.0.0.1:8001/api/v1/health
+Invoke-RestMethod http://127.0.0.1:8001/api/v1/health/ready
 ```
 
 `/health` checks application availability. `/health/ready` also checks database
 connectivity and returns a safe `503` response if PostgreSQL is unavailable.
+When using the Windows fallback port, replace `8000` with `8001` in the URLs
+below.
 
 ## 8. Verify Auth APIs
 

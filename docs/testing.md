@@ -4,8 +4,9 @@ The backend test suite is split into unit tests and integration-oriented API
 tests. Tests set safe environment variables in `app/tests/conftest.py` so they
 do not depend on production configuration.
 
-Use `python3 -m ...` on Unix/macOS/Linux. On Windows, use `py -3 -m ...`
-when the `python` command is unavailable. Docker-only runs can use
+Use `python3 -m ...` on Unix/macOS/Linux. On Windows, create `.venv` with
+`py -3 -m venv .venv`, then use `.\.venv\Scripts\python.exe -m ...`.
+Docker-only runs can use
 `docker compose exec backend python -m pytest`.
 
 ## Unit Tests
@@ -13,6 +14,9 @@ when the `python` command is unavailable. Docker-only runs can use
 Unit tests cover:
 
 - config loading and app import behavior
+- database URL normalization, production debug protection, and local server
+  port fallback behavior
+- credentialed-CORS wildcard rejection and duplicate API-route detection
 - password hashing and verification
 - password policy validation
 - access token creation and validation
@@ -54,7 +58,7 @@ Unit tests cover:
 - dashboard analytics date range, interval, limit, risk-level, and
   recommendation-status validation
 - reports date range, export format, risk/status/stock-status filter, safe CSV
-  filename, and CSV serialization validation
+  filename, CSV serialization validation, and spreadsheet formula escaping
 - background job status transitions, cancellation rules, retry rules, retry
   limits, RQ status mapping, safe sort validation, result summary
   sanitization, retryable exception classification, worker success behavior,
@@ -270,6 +274,9 @@ enqueueing, job cancellation, and job retry behavior.
 
 The async database session smoke test checks whether the test database is
 reachable. If it is not available, the test is skipped instead of failing.
+
+Run `python3 -m alembic check` against a reachable PostgreSQL database to
+ensure ORM metadata matches the migration-created schema.
 
 Start local PostgreSQL:
 

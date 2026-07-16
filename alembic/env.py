@@ -34,10 +34,7 @@ target_metadata = Base.metadata
 
 
 def get_database_url() -> str:
-    try:
-        return get_settings().DATABASE_URL
-    except Exception:
-        return config.get_main_option("sqlalchemy.url")
+    return get_settings().DATABASE_URL
 
 
 def run_migrations_offline() -> None:

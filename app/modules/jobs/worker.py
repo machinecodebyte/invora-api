@@ -15,6 +15,13 @@ def main() -> int:
     try:
         settings = get_settings()
         configure_logging(settings.LOG_LEVEL)
+        if not settings.WORKER_ENABLED:
+            logger.info(
+                "background_worker_disabled",
+                extra=settings.startup_log_context,
+            )
+            return 0
+
         from redis import Redis
         from rq import Queue, Worker
 
@@ -31,7 +38,11 @@ def main() -> int:
         )
         logger.info(
             "background_worker_starting",
-            extra={"worker_name": worker_name, "queues": queue_names},
+            extra={
+                "worker_name": worker_name,
+                "queues": queue_names,
+                **settings.startup_log_context,
+            },
         )
         worker = Worker(queues, connection=connection, name=worker_name)
         worker.work(with_scheduler=False)

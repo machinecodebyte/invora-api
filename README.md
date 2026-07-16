@@ -132,7 +132,7 @@ Current safe local defaults use PostgreSQL host port `5432` and Redis host port
 POSTGRES_HOST_PORT=5433
 REDIS_HOST_PORT=56380
 BACKEND_HOST_PORT=8001
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/invora
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:${POSTGRES_HOST_PORT}/invora
 REDIS_URL=redis://localhost:56380/0
 ```
 
@@ -173,7 +173,13 @@ http://127.0.0.1:8000/docs
 - [Commands](docs/commands.md)
 - [Testing](docs/testing.md)
 - [Architecture](docs/architecture.md)
+- [Configuration](docs/configuration.md)
+- [Database operations](docs/database.md)
+- [Deployment](docs/deployment.md)
 - [Swagger/OpenAPI](docs/swagger.md)
+- [API smoke test](docs/api-smoke-test.md)
+- [Security audit](docs/security-audit.md)
+- [Production readiness](docs/production-readiness.md)
 - [Progress](docs/progress.md)
 
 ## API Summary

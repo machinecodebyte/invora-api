@@ -2,9 +2,9 @@
 
 Run commands from `backend/`.
 
-Use `python3 -m ...` on Unix/macOS/Linux. On Windows, use `py -3 -m ...`
-when the `python` command is unavailable. Inside the Docker backend container,
-`python` is available.
+Use `python3 -m ...` on Unix/macOS/Linux. On Windows, create the environment
+with `py -3 -m venv .venv`, then use `.\.venv\Scripts\python.exe -m ...`.
+Inside the Docker backend container, `python` is available.
 
 ## Install
 
@@ -19,9 +19,8 @@ Windows launcher alternative:
 
 ```powershell
 py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-py -3 -m pip install --upgrade pip
-py -3 -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
 ## Environment
@@ -30,12 +29,28 @@ py -3 -m pip install -e ".[dev]"
 Copy-Item .env.example .env
 ```
 
+For local Python runs, the database URL must use the async SQLAlchemy dialect:
+
+```text
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:${POSTGRES_HOST_PORT}/invora
+```
+
+Docker services use the internal hostname instead:
+
+```text
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@invora-postgres:5432/invora
+```
+
+Use `DOCKER_DATABASE_URL` and `DOCKER_REDIS_URL` for the Docker-only values;
+see [Configuration](configuration.md) for hosted PostgreSQL and Redis examples.
+
 ## Port Checks
 
 ```powershell
 Get-NetTCPConnection -LocalPort 5432 -ErrorAction SilentlyContinue
 Get-NetTCPConnection -LocalPort 56379 -ErrorAction SilentlyContinue
 Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
+Get-NetTCPConnection -LocalPort 8001 -ErrorAction SilentlyContinue
 docker ps
 ```
 
@@ -43,7 +58,8 @@ Current safe local defaults use `POSTGRES_HOST_PORT=5432` and
 `REDIS_HOST_PORT=56379`, with backend host port `BACKEND_HOST_PORT=8000`. If a
 port is busy, set `POSTGRES_HOST_PORT`, `REDIS_HOST_PORT`, or
 `BACKEND_HOST_PORT` in `.env`. For local Python runs, update `DATABASE_URL` and
-`REDIS_URL` to use the selected host ports.
+`REDIS_URL` to use the selected host ports. If Windows rejects port `8000`, run
+Uvicorn on `127.0.0.1:8001`.
 
 ## Docker Compose
 
@@ -77,13 +93,14 @@ or forced container removal unless you explicitly intend to remove local data.
 ## Run Server
 
 ```powershell
-python3 -m uvicorn app.main:app --reload
+.\.venv\Scripts\python.exe -m app.server
 ```
 
-Windows launcher alternative:
+Windows fallback when port `8000` is blocked:
 
 ```powershell
-py -3 -m uvicorn app.main:app --reload
+$env:API_PORT = 8001
+.\.venv\Scripts\python.exe -m app.server
 ```
 
 Docker-only backend:
@@ -102,7 +119,7 @@ python3 -m app.modules.jobs.worker
 Windows launcher alternative:
 
 ```powershell
-py -3 -m app.modules.jobs.worker
+.\.venv\Scripts\python.exe -m app.modules.jobs.worker
 ```
 
 Docker worker:
@@ -119,6 +136,7 @@ docker compose stop invora-worker
 python3 -m alembic heads
 python3 -m alembic current
 python3 -m alembic upgrade head
+python3 -m alembic check
 python3 -m alembic revision --autogenerate -m "describe change"
 python3 -m alembic downgrade -1
 ```
@@ -126,8 +144,8 @@ python3 -m alembic downgrade -1
 Windows launcher alternative:
 
 ```powershell
-py -3 -m alembic upgrade head
-py -3 -m alembic current
+.\.venv\Scripts\python.exe -m alembic upgrade head
+.\.venv\Scripts\python.exe -m alembic current
 ```
 
 Docker-only migration:
@@ -146,7 +164,7 @@ python3 -m pytest
 Windows launcher alternative:
 
 ```powershell
-py -3 -m pytest
+.\.venv\Scripts\python.exe -m pytest
 ```
 
 Docker-only tests:
@@ -253,6 +271,12 @@ Run health tests:
 python3 -m pytest app/tests/integration/test_health_api.py
 ```
 
+Run API route, configuration, and report-export hardening tests:
+
+```powershell
+python3 -m pytest app/tests/unit/test_api_routes.py app/tests/unit/test_config.py app/tests/unit/test_reports.py
+```
+
 ## Lint
 
 ```powershell
@@ -268,7 +292,8 @@ python3 -m ruff format .
 ## Swagger/OpenAPI Verification
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/openapi.json
+$apiPort = 8001 # Match API_PORT in .env, or use the fallback chosen by app.server.
+Invoke-RestMethod "http://127.0.0.1:$apiPort/openapi.json"
 ```
 
 Manual protected API check:

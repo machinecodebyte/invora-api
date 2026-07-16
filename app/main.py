@@ -15,9 +15,16 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
-    logger.info("application_startup", extra={"app_name": settings.APP_NAME})
+    startup_context = settings.startup_log_context
+    actual_api_port = getattr(app.state, "api_port", None)
+    if actual_api_port is not None:
+        startup_context["api_port"] = actual_api_port
+    logger.info(
+        "application_startup",
+        extra={"app_name": settings.APP_NAME, **startup_context},
+    )
     try:
         yield
     finally:

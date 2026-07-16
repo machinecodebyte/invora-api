@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 from app.core.config import get_settings
 
 
@@ -38,3 +41,73 @@ def test_app_imports() -> None:
     from app.main import app
 
     assert app.title
+
+
+def test_config_rejects_wildcard_cors_with_credentials(monkeypatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("CORS_ORIGINS", "*")
+
+    with pytest.raises(ValidationError, match="CORS_ORIGINS cannot use wildcard"):
+        get_settings()
+
+    get_settings.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("database_url", "expected_url"),
+    [
+        (
+            "postgres://postgres:postgres@localhost:5432/invora",
+            "postgresql+asyncpg://postgres:postgres@localhost:5432/invora",
+        ),
+        (
+            "postgres+asyncpg://postgres:postgres@localhost:5432/invora",
+            "postgresql+asyncpg://postgres:postgres@localhost:5432/invora",
+        ),
+        (
+            "postgresql://postgres:postgres@localhost:5432/invora",
+            "postgresql+asyncpg://postgres:postgres@localhost:5432/invora",
+        ),
+    ],
+)
+def test_config_normalizes_postgresql_dialects(
+    monkeypatch,
+    database_url,
+    expected_url,
+) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("DATABASE_URL", database_url)
+
+    assert get_settings().DATABASE_URL == expected_url
+
+    get_settings.cache_clear()
+
+
+def test_config_rejects_non_postgresql_database_urls(monkeypatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///invora.db")
+
+    with pytest.raises(ValidationError, match="DATABASE_URL must use"):
+        get_settings()
+
+    get_settings.cache_clear()
+
+
+def test_config_treats_release_debug_as_disabled(monkeypatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("DEBUG", "release")
+
+    assert get_settings().DEBUG is False
+
+    get_settings.cache_clear()
+
+
+def test_config_rejects_production_debug(monkeypatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("DEBUG", "true")
+
+    with pytest.raises(ValidationError, match="DEBUG must be false"):
+        get_settings()
+
+    get_settings.cache_clear()

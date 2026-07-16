@@ -54,4 +54,12 @@ def _csv_value(value: Any) -> str:
         return value.isoformat()
     if isinstance(value, UUID):
         return str(value)
+    if isinstance(value, str):
+        return _escape_spreadsheet_formula(value)
     return str(value)
+
+
+def _escape_spreadsheet_formula(value: str) -> str:
+    if value.lstrip().startswith(("=", "+", "-", "@")):
+        return f"'{value}"
+    return value

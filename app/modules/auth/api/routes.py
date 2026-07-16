@@ -19,7 +19,7 @@ from app.modules.auth.api.schemas import (
 )
 from app.modules.auth.application.service import AuthResult, AuthService
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post(

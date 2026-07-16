@@ -81,3 +81,20 @@ def test_csv_serialization_formats_public_values() -> None:
     assert "Rice" in csv_text
     assert "12.500" in csv_text
     assert "2026-07-10T12:30:00" in csv_text
+
+
+def test_csv_serialization_escapes_spreadsheet_formulas() -> None:
+    csv_text = serialize_report_rows_to_csv(
+        [
+            {
+                "product_name": '=HYPERLINK("https://example.test")',
+                "customer_name": "  +1+1",
+                "notes": "Normal text",
+            }
+        ],
+        fieldnames=("product_name", "customer_name", "notes"),
+    )
+
+    assert "'=HYPERLINK" in csv_text
+    assert "'  +1+1" in csv_text
+    assert "Normal text" in csv_text
