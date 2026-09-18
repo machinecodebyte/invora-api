@@ -1,5 +1,7 @@
 import pytest
 
+REFRESH_COOKIE_NAME = "invora_refresh_token"
+REFRESH_COOKIE_PATH = "/api/v1/auth"
 REGISTER_PAYLOAD = {
     "email": "owner@example.com",
     "password": "StrongPass1!",
@@ -7,17 +9,35 @@ REGISTER_PAYLOAD = {
 }
 
 
+def assert_refresh_cookie(response) -> None:
+    cookie = response.headers["set-cookie"]
+
+    assert REFRESH_COOKIE_NAME in cookie
+    assert "HttpOnly" in cookie
+    assert "Path=/api/v1/auth" in cookie
+    assert "SameSite=lax" in cookie
+    assert "Max-Age=1209600" in cookie
+    assert "Secure" not in cookie
+
+
+def assert_access_only_tokens(body: dict[str, object]) -> None:
+    tokens = body["data"]["tokens"]
+    assert isinstance(tokens, dict)
+    assert tokens["token_type"] == "bearer"
+    assert tokens["access_token"]
+    assert "refresh_token" not in tokens
+
+
 @pytest.mark.asyncio
-async def test_register_success(auth_client) -> None:
+async def test_register_success_sets_http_only_refresh_cookie(auth_client) -> None:
     response = await auth_client.post("/api/v1/auth/register", json=REGISTER_PAYLOAD)
     body = response.json()
 
     assert response.status_code == 201
     assert body["success"] is True
     assert body["data"]["user"]["email"] == "owner@example.com"
-    assert body["data"]["tokens"]["token_type"] == "bearer"
-    assert body["data"]["tokens"]["access_token"]
-    assert body["data"]["tokens"]["refresh_token"]
+    assert_access_only_tokens(body)
+    assert_refresh_cookie(response)
 
 
 @pytest.mark.asyncio
@@ -30,7 +50,18 @@ async def test_duplicate_register_returns_409(auth_client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_login_success(auth_client) -> None:
+async def test_register_rejects_weak_password(auth_client) -> None:
+    response = await auth_client.post(
+        "/api/v1/auth/register",
+        json={"email": "owner@example.com", "password": "weak"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "weak_password"
+
+
+@pytest.mark.asyncio
+async def test_login_success_sets_http_only_refresh_cookie(auth_client) -> None:
     await auth_client.post("/api/v1/auth/register", json=REGISTER_PAYLOAD)
     response = await auth_client.post(
         "/api/v1/auth/login",
@@ -41,7 +72,8 @@ async def test_login_success(auth_client) -> None:
     assert response.status_code == 200
     assert body["success"] is True
     assert body["data"]["user"]["email"] == "owner@example.com"
-    assert body["data"]["tokens"]["access_token"]
+    assert_access_only_tokens(body)
+    assert_refresh_cookie(response)
 
 
 @pytest.mark.asyncio
@@ -74,7 +106,7 @@ async def test_me_with_valid_token_returns_user(auth_client) -> None:
 
     response = await auth_client.get(
         "/api/v1/auth/me",
-        headers={"Authorization": f"Bearer {access_token}"},
+        headers={"Authorization": "Bearer " + access_token},
     )
 
     assert response.status_code == 200
@@ -82,48 +114,90 @@ async def test_me_with_valid_token_returns_user(auth_client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_refresh_returns_rotated_tokens(auth_client) -> None:
-    register_response = await auth_client.post(
+async def test_refresh_rotates_cookie_and_rejects_the_previous_token(
+    auth_client,
+) -> None:
+    await auth_client.post(
         "/api/v1/auth/register",
         json=REGISTER_PAYLOAD,
     )
-    old_refresh_token = register_response.json()["data"]["tokens"]["refresh_token"]
-
-    refresh_response = await auth_client.post(
-        "/api/v1/auth/refresh",
-        json={"refresh_token": old_refresh_token},
+    old_refresh_token = auth_client.cookies.get(
+        REFRESH_COOKIE_NAME,
+        path=REFRESH_COOKIE_PATH,
     )
+    assert old_refresh_token is not None
+
+    refresh_response = await auth_client.post("/api/v1/auth/refresh")
     body = refresh_response.json()
 
     assert refresh_response.status_code == 200
-    assert body["data"]["tokens"]["refresh_token"] != old_refresh_token
+    assert_access_only_tokens(body)
+    assert_refresh_cookie(refresh_response)
+    assert (
+        auth_client.cookies.get(REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH)
+        != old_refresh_token
+    )
 
+    auth_client.cookies.clear()
     reuse_response = await auth_client.post(
         "/api/v1/auth/refresh",
-        json={"refresh_token": old_refresh_token},
+        headers={"Cookie": REFRESH_COOKIE_NAME + "=" + old_refresh_token},
     )
     assert reuse_response.status_code == 401
     assert reuse_response.json()["error"]["code"] == "revoked_refresh_token"
+    assert "Max-Age=0" in reuse_response.headers["set-cookie"]
 
 
 @pytest.mark.asyncio
-async def test_logout_revokes_refresh_token(auth_client) -> None:
-    register_response = await auth_client.post(
-        "/api/v1/auth/register",
-        json=REGISTER_PAYLOAD,
-    )
-    refresh_token = register_response.json()["data"]["tokens"]["refresh_token"]
+async def test_refresh_without_cookie_returns_safe_error_and_clears_cookie(
+    auth_client,
+) -> None:
+    response = await auth_client.post("/api/v1/auth/refresh")
 
-    logout_response = await auth_client.post(
-        "/api/v1/auth/logout",
-        json={"refresh_token": refresh_token},
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "invalid_refresh_token"
+    assert "Max-Age=0" in response.headers["set-cookie"]
+    assert "HttpOnly" in response.headers["set-cookie"]
+
+
+@pytest.mark.asyncio
+async def test_logout_revokes_cookie_session_and_is_idempotent(auth_client) -> None:
+    await auth_client.post("/api/v1/auth/register", json=REGISTER_PAYLOAD)
+    refresh_token = auth_client.cookies.get(
+        REFRESH_COOKIE_NAME,
+        path=REFRESH_COOKIE_PATH,
     )
+    assert refresh_token is not None
+
+    logout_response = await auth_client.post("/api/v1/auth/logout")
     assert logout_response.status_code == 200
     assert logout_response.json()["data"]["message"] == "Logged out successfully."
+    assert "Max-Age=0" in logout_response.headers["set-cookie"]
 
+    repeated_logout_response = await auth_client.post("/api/v1/auth/logout")
+    assert repeated_logout_response.status_code == 200
+
+    auth_client.cookies.clear()
     refresh_response = await auth_client.post(
         "/api/v1/auth/refresh",
-        json={"refresh_token": refresh_token},
+        headers={"Cookie": REFRESH_COOKIE_NAME + "=" + refresh_token},
     )
     assert refresh_response.status_code == 401
     assert refresh_response.json()["error"]["code"] == "revoked_refresh_token"
+
+
+@pytest.mark.asyncio
+async def test_auth_cors_preflight_allows_configured_frontend_origin(
+    auth_client,
+) -> None:
+    response = await auth_client.options(
+        "/api/v1/auth/refresh",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert response.headers["access-control-allow-credentials"] == "true"

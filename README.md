@@ -166,6 +166,14 @@ Swagger UI is available at:
 http://127.0.0.1:8000/docs
 ```
 
+## Browser Auth integration
+
+The frontend Foundation/Auth integration uses an in-memory access token and an
+HttpOnly refresh cookie. Register/login set the cookie and return access-token
+fields only; refresh rotates it; logout revokes and clears it. Configure explicit
+CORS browser origins and review the refresh-cookie settings in
+docs/configuration.md before deploying.
+
 ## Documentation
 
 - [Docs overview](docs/README.md)

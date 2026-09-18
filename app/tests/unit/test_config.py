@@ -29,6 +29,12 @@ def test_config_loads_required_settings(monkeypatch) -> None:
     assert settings.API_V1_PREFIX == "/api/v1"
     assert settings.LOG_LEVEL == "INFO"
     assert settings.REFRESH_TOKEN_EXPIRE_DAYS == 7
+    assert settings.REFRESH_COOKIE_NAME == "invora_refresh_token"
+    assert settings.refresh_cookie_secure is False
+    assert settings.refresh_cookie_path == "/api/v1/auth"
+    assert settings.refresh_cookie_max_age_seconds == 604800
+    assert settings.asyncpg_database_url == settings.DATABASE_URL
+    assert settings.asyncpg_connect_args == {}
     assert settings.cors_origin_list == [
         "http://localhost:3000",
         "http://localhost:5173",
@@ -85,6 +91,30 @@ def test_config_normalizes_postgresql_dialects(
 
 def test_config_rejects_non_postgresql_database_urls(monkeypatch) -> None:
     get_settings.cache_clear()
+
+
+def test_config_translates_prisma_ssl_and_migration_endpoints(monkeypatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql://user:password@pooled.db.prisma.io:5432/postgres?sslmode=verify-full",
+    )
+
+    settings = get_settings()
+
+    assert settings.asyncpg_database_url == (
+        "postgresql+asyncpg://user:password@pooled.db.prisma.io:5432/postgres"
+    )
+    assert settings.asyncpg_connect_args == {"ssl": True}
+    assert settings.migration_database_url == (
+        "postgresql+asyncpg://user:password@db.prisma.io:5432/postgres?sslmode=verify-full"
+    )
+    assert settings.migration_asyncpg_database_url == (
+        "postgresql+asyncpg://user:password@db.prisma.io:5432/postgres"
+    )
+    assert settings.migration_asyncpg_connect_args == {"ssl": True}
+
+    get_settings.cache_clear()
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///invora.db")
 
     with pytest.raises(ValidationError, match="DATABASE_URL must use"):
@@ -103,6 +133,30 @@ def test_config_treats_release_debug_as_disabled(monkeypatch) -> None:
 
 
 def test_config_rejects_production_debug(monkeypatch) -> None:
+    get_settings.cache_clear()
+
+
+def test_config_rejects_insecure_refresh_cookie_in_production(monkeypatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("DEBUG", "false")
+    monkeypatch.setenv("REFRESH_COOKIE_SECURE", "false")
+
+    with pytest.raises(ValidationError, match="REFRESH_COOKIE_SECURE must be true"):
+        get_settings()
+
+    get_settings.cache_clear()
+
+
+def test_config_rejects_same_site_none_without_secure_cookie(monkeypatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("REFRESH_COOKIE_SECURE", "false")
+    monkeypatch.setenv("REFRESH_COOKIE_SAMESITE", "none")
+
+    with pytest.raises(ValidationError, match="REFRESH_COOKIE_SAMESITE=none"):
+        get_settings()
+
     get_settings.cache_clear()
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("DEBUG", "true")

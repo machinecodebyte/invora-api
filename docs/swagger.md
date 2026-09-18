@@ -406,3 +406,11 @@ PATCH /api/v1/settings/forecast
 POST /api/v1/settings/reset
 GET /api/v1/settings/options
 ```
+
+## Browser Auth session contract
+
+Register and login return a safe public user plus access-token fields. The
+refresh token is an HttpOnly browser cookie, not a JSON field. Browser refresh
+and logout requests send that cookie with credentials; manual clients can use
+the issued access token to call protected APIs but should not expect a refresh
+value in a response body.

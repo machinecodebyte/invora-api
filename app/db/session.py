@@ -8,7 +8,8 @@ from app.core.config import get_settings
 settings = get_settings()
 
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.asyncpg_database_url,
+    connect_args=settings.asyncpg_connect_args,
     future=True,
     pool_pre_ping=True,
 )

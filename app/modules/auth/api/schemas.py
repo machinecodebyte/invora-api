@@ -28,14 +28,6 @@ class LoginRequest(BaseModel):
         return normalize_email_for_schema(value)
 
 
-class RefreshRequest(BaseModel):
-    refresh_token: str = Field(..., min_length=20)
-
-
-class LogoutRequest(BaseModel):
-    refresh_token: str = Field(..., min_length=20)
-
-
 class UserPublic(BaseModel):
     id: UUID
     email: str
@@ -47,16 +39,15 @@ class UserPublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TokenPairResponse(BaseModel):
+class AccessTokenResponse(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: Literal["bearer"]
     expires_in: int
 
 
 class AuthData(BaseModel):
     user: UserPublic
-    tokens: TokenPairResponse
+    tokens: AccessTokenResponse
 
 
 class UserData(BaseModel):

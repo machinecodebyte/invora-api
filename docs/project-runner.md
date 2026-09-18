@@ -465,3 +465,12 @@ Invoke-RestMethod `
   -ContentType "application/json" `
   -Body '{"category":"forecast"}'
 ```
+
+## Browser Auth cookie integration
+
+Use the frontend origin in CORS_ORIGINS and keep it explicit. For local
+development, the standard frontend/backend origins are localhost ports 3000 and
+8000. Configure refresh-cookie Secure false only for local HTTP; production
+enforces Secure. The frontend sends browser credentials only to Auth refresh and
+logout, while protected business endpoints continue using the memory-only Bearer
+access token.

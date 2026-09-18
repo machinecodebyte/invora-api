@@ -23,6 +23,9 @@ def pytest_configure() -> None:
     os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-foundation"
     os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
     os.environ["REFRESH_TOKEN_EXPIRE_DAYS"] = "14"
+    os.environ["REFRESH_COOKIE_NAME"] = "invora_refresh_token"
+    os.environ["REFRESH_COOKIE_SECURE"] = "false"
+    os.environ["REFRESH_COOKIE_SAMESITE"] = "lax"
 
 
 @pytest.fixture

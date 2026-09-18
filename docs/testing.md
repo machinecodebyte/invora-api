@@ -83,6 +83,8 @@ Integration tests cover:
 - `/me` without token returning `401`
 - `/me` with a valid token returning the user
 - refresh-token rotation
+- HttpOnly refresh-cookie delivery and clearing
+- access-only Auth JSON response shape
 - logout revocation
 - revoked refresh token reuse rejection
 - user profile protected route behavior

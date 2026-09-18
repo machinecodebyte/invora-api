@@ -53,6 +53,25 @@ DOCKER_REDIS_URL=redis://invora-redis:6379/0
 For a hosted production database or Redis deployment, set both the direct and
 Docker values to the provider URL in `.env`; no code change is required.
 
+### Prisma Postgres compatibility
+
+Invora uses SQLAlchemy and Alembic, not Prisma ORM. A Prisma Postgres database
+can still be the PostgreSQL provider: the application uses its pooled endpoint
+for runtime traffic, while Alembic derives the documented direct endpoint when
+the configured host is `pooled.db.prisma.io`.
+
+Prisma Postgres requires an `sslmode` query parameter. Invora removes that
+libpq-style parameter from the SQLAlchemy URL and supplies its value through
+asyncpg's supported `ssl` connection argument. `verify-full` uses asyncpg's
+system-trust SSL context, preserving certificate and hostname verification
+without requiring a local libpq `root.crt` file. This keeps TLS enforcement
+intact without exposing credentials or changing `.env` at runtime.
+
+There is no `prisma/schema.prisma` or Prisma Client in this backend. Apply and
+inspect the SQLAlchemy schema with Alembic and a PostgreSQL client using the
+provider's direct connection string; Prisma Studio cannot discover models that
+are not defined in a Prisma schema.
+
 ## API Server Settings
 
 `API_HOST` and `API_PORT` configure the local configuration-aware launcher:
@@ -71,3 +90,21 @@ For reload mode, pass the configured host and port explicitly to Uvicorn:
 
 Environment variables in the active shell override `.env`. Remove or correct
 stale shell variables before starting a local process.
+
+## Auth refresh-cookie settings
+
+Browser Auth uses a refresh token only as an HttpOnly cookie. It is never
+returned in the JSON Auth response and must not be configured in frontend
+environment variables.
+
+| Variable | Purpose |
+| --- | --- |
+| REFRESH_COOKIE_NAME | Cookie name; defaults to invora_refresh_token |
+| REFRESH_COOKIE_SECURE | Explicit local/test override; production is always Secure |
+| REFRESH_COOKIE_SAMESITE | lax, strict, or none; none requires Secure |
+| REFRESH_COOKIE_DOMAIN | Optional shared parent domain; unset keeps the cookie host-only |
+
+The cookie path is derived from the configured API prefix and Auth route. Login,
+registration, and successful refresh set or rotate it; failed refresh and logout
+clear it with matching attributes. Configure CORS_ORIGINS with explicit browser
+origins and never a wildcard when browser credentials are enabled.

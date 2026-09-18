@@ -150,7 +150,6 @@ async def test_login_password_behavior_after_password_change(auth_client) -> Non
 async def test_refresh_token_reuse_after_password_change_fails(auth_client) -> None:
     data = await _register(auth_client)
     access_token = data["tokens"]["access_token"]
-    refresh_token = data["tokens"]["refresh_token"]
 
     change_response = await auth_client.post(
         "/api/v1/users/me/change-password",
@@ -162,10 +161,7 @@ async def test_refresh_token_reuse_after_password_change_fails(auth_client) -> N
     )
     assert change_response.status_code == 200
 
-    refresh_response = await auth_client.post(
-        "/api/v1/auth/refresh",
-        json={"refresh_token": refresh_token},
-    )
+    refresh_response = await auth_client.post("/api/v1/auth/refresh")
 
     assert refresh_response.status_code == 401
     assert refresh_response.json()["error"]["code"] == "revoked_refresh_token"

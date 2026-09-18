@@ -34,7 +34,7 @@ target_metadata = Base.metadata
 
 
 def get_database_url() -> str:
-    return get_settings().DATABASE_URL
+    return get_settings().migration_asyncpg_database_url
 
 
 def run_migrations_offline() -> None:
@@ -62,13 +62,15 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
+    settings = get_settings()
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = get_database_url()
+    configuration["sqlalchemy.url"] = settings.migration_asyncpg_database_url
 
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=settings.migration_asyncpg_connect_args,
     )
 
     async with connectable.connect() as connection:

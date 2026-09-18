@@ -15,3 +15,7 @@ http://127.0.0.1:<API_PORT>/redoc
 
 See [Swagger and OpenAPI](swagger.md) for token authorization and API-group
 verification.
+
+Auth refresh transport is cookie-based: generated Auth response schemas expose
+only access-token fields, while the HttpOnly refresh cookie is represented in
+the response headers rather than the OpenAPI JSON schema.

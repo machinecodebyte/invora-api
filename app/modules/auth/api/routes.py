@@ -1,23 +1,30 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi.responses import JSONResponse
 
+from app.core.config import Settings, get_settings
+from app.modules.auth.api.cookies import clear_refresh_cookie, set_refresh_cookie
 from app.modules.auth.api.dependencies import get_auth_service, get_current_user
 from app.modules.auth.api.schemas import (
+    AccessTokenResponse,
     AuthData,
     AuthResponse,
     LoginRequest,
-    LogoutRequest,
     MeResponse,
     MessageData,
     MessageResponse,
-    RefreshRequest,
     RegisterRequest,
-    TokenPairResponse,
     UserData,
     UserPublic,
 )
 from app.modules.auth.application.service import AuthResult, AuthService
+from app.modules.auth.domain.exceptions import (
+    ExpiredRefreshTokenError,
+    InvalidRefreshTokenError,
+    RevokedRefreshTokenError,
+)
+from app.shared.responses import error_response
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -32,7 +39,9 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 async def register(
     payload: RegisterRequest,
     request: Request,
+    response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthResponse:
     result = await auth_service.register(
         email=payload.email,
@@ -40,6 +49,11 @@ async def register(
         full_name=payload.full_name,
         user_agent=request.headers.get("user-agent"),
         ip_address=_client_ip(request),
+    )
+    set_refresh_cookie(
+        response,
+        refresh_token=result.tokens.refresh_token,
+        settings=settings,
     )
     return _auth_response(result)
 
@@ -54,13 +68,20 @@ async def register(
 async def login(
     payload: LoginRequest,
     request: Request,
+    response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthResponse:
     result = await auth_service.login(
         email=payload.email,
         password=payload.password,
         user_agent=request.headers.get("user-agent"),
         ip_address=_client_ip(request),
+    )
+    set_refresh_cookie(
+        response,
+        refresh_token=result.tokens.refresh_token,
+        settings=settings,
     )
     return _auth_response(result)
 
@@ -84,14 +105,34 @@ async def me(current_user: Annotated[object, Depends(get_current_user)]) -> MeRe
     description="Rotate a valid refresh token and return a new token pair.",
 )
 async def refresh(
-    payload: RefreshRequest,
     request: Request,
+    response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> AuthResponse:
-    result = await auth_service.refresh_token(
-        refresh_token=payload.refresh_token,
-        user_agent=request.headers.get("user-agent"),
-        ip_address=_client_ip(request),
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AuthResponse | JSONResponse:
+    refresh_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    try:
+        result = await auth_service.refresh_token(
+            refresh_token=refresh_token or "",
+            user_agent=request.headers.get("user-agent"),
+            ip_address=_client_ip(request),
+        )
+    except (
+        InvalidRefreshTokenError,
+        ExpiredRefreshTokenError,
+        RevokedRefreshTokenError,
+    ) as exc:
+        error = JSONResponse(
+            status_code=exc.status_code,
+            content=error_response(code=exc.code, message=exc.message),
+        )
+        clear_refresh_cookie(error, settings=settings)
+        return error
+
+    set_refresh_cookie(
+        response,
+        refresh_token=result.tokens.refresh_token,
+        settings=settings,
     )
     return _auth_response(result)
 
@@ -104,20 +145,33 @@ async def refresh(
     description="Revoke a valid refresh token so it cannot be reused.",
 )
 async def logout(
-    payload: LogoutRequest,
+    request: Request,
+    response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> MessageResponse:
-    message = await auth_service.logout(refresh_token=payload.refresh_token)
-    return MessageResponse(data=MessageData(message=message))
+    refresh_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    if refresh_token:
+        try:
+            await auth_service.logout(refresh_token=refresh_token)
+        except (
+            InvalidRefreshTokenError,
+            ExpiredRefreshTokenError,
+            RevokedRefreshTokenError,
+        ):
+            # Logout is intentionally idempotent. The browser still needs its
+            # stale cookie removed even if the persisted session is gone.
+            pass
+    clear_refresh_cookie(response, settings=settings)
+    return MessageResponse(data=MessageData(message="Logged out successfully."))
 
 
 def _auth_response(result: AuthResult) -> AuthResponse:
     return AuthResponse(
         data=AuthData(
             user=UserPublic.model_validate(result.user),
-            tokens=TokenPairResponse(
+            tokens=AccessTokenResponse(
                 access_token=result.tokens.access_token,
-                refresh_token=result.tokens.refresh_token,
                 token_type=result.tokens.token_type,
                 expires_in=result.tokens.expires_in,
             ),
