@@ -71,20 +71,28 @@ class RQQueueFactory:
         *,
         required_queue_names: list[str],
     ) -> list[str]:
-        """Return non-expired RQ workers without relying on a stale global set.
+        """Return live workers registered for every queue required by this API.
 
-        RQ 2.x refreshes each ``rq:worker:<name>`` key with its heartbeat. Its
-        global worker set is not consistently populated across worker modes, so
-        scanning only the bounded worker-key namespace is the reliable readiness
-        signal. The key must be live, assigned to every required queue, and not
-        marked dead; this excludes stale keys left by interrupted containers.
+        RQ stores queue-to-worker membership in ``rq:workers:<queue>`` sets.
+        In RQ 2.x, a long-running worker heartbeat can retain only
+        ``last_heartbeat`` in the worker hash, so hash fields cannot reliably
+        establish its queue assignment. Intersect the documented registration
+        sets and use the worker-key TTL as the liveness boundary instead.
         """
         worker_names: list[str] = []
         prefix = "rq:worker:"
-        required_queues = set(required_queue_names)
-        for raw_key in connection.scan_iter(match=f"{prefix}*"):
-            key = raw_key.decode() if isinstance(raw_key, bytes) else str(raw_key)
-            if connection.ttl(key) <= 0:
+        registered_workers = [
+            {
+                raw_key.decode() if isinstance(raw_key, bytes) else str(raw_key)
+                for raw_key in connection.smembers(f"rq:workers:{queue_name}")
+            }
+            for queue_name in required_queue_names
+        ]
+        if not registered_workers:
+            return worker_names
+
+        for key in set.intersection(*registered_workers):
+            if not key.startswith(prefix) or connection.ttl(key) <= 0:
                 continue
 
             raw_metadata = connection.hgetall(key)
@@ -98,12 +106,7 @@ class RQQueueFactory:
                 else str(raw_value)
                 for raw_field, raw_value in raw_metadata.items()
             }
-            worker_queues = set(metadata.get("queues", "").split(","))
-            if (
-                "death" not in metadata
-                and metadata.get("birth")
-                and required_queues.issubset(worker_queues)
-            ):
+            if "death" not in metadata:
                 worker_names.append(key.removeprefix(prefix))
         return sorted(worker_names)
 
