@@ -34,7 +34,6 @@ class RQQueueFactory:
 
     def get_health(self, queue_names: list[str]) -> dict[str, Any]:
         try:
-            from rq import Worker
             from rq.registry import FailedJobRegistry, StartedJobRegistry
 
             self.check_ready()
@@ -52,16 +51,61 @@ class RQQueueFactory:
                         "failed_job_count": len(failed),
                     }
                 )
-            workers = Worker.all(connection=connection)
+            worker_names = self._active_worker_names(
+                connection,
+                required_queue_names=queue_names,
+            )
             return {
                 "redis_available": True,
                 "queues_available": True,
                 "queues": queue_stats,
-                "active_worker_count": len(workers),
-                "worker_names": sorted(worker.name for worker in workers),
+                "active_worker_count": len(worker_names),
+                "worker_names": worker_names,
             }
         except Exception as exc:
             raise QueueUnavailableError() from exc
+
+    @staticmethod
+    def _active_worker_names(
+        connection: Any,
+        *,
+        required_queue_names: list[str],
+    ) -> list[str]:
+        """Return non-expired RQ workers without relying on a stale global set.
+
+        RQ 2.x refreshes each ``rq:worker:<name>`` key with its heartbeat. Its
+        global worker set is not consistently populated across worker modes, so
+        scanning only the bounded worker-key namespace is the reliable readiness
+        signal. The key must be live, assigned to every required queue, and not
+        marked dead; this excludes stale keys left by interrupted containers.
+        """
+        worker_names: list[str] = []
+        prefix = "rq:worker:"
+        required_queues = set(required_queue_names)
+        for raw_key in connection.scan_iter(match=f"{prefix}*"):
+            key = raw_key.decode() if isinstance(raw_key, bytes) else str(raw_key)
+            if connection.ttl(key) <= 0:
+                continue
+
+            raw_metadata = connection.hgetall(key)
+            metadata = {
+                (
+                    raw_field.decode()
+                    if isinstance(raw_field, bytes)
+                    else str(raw_field)
+                ): raw_value.decode()
+                if isinstance(raw_value, bytes)
+                else str(raw_value)
+                for raw_field, raw_value in raw_metadata.items()
+            }
+            worker_queues = set(metadata.get("queues", "").split(","))
+            if (
+                "death" not in metadata
+                and metadata.get("birth")
+                and required_queues.issubset(worker_queues)
+            ):
+                worker_names.append(key.removeprefix(prefix))
+        return sorted(worker_names)
 
 
 @lru_cache

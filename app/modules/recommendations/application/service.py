@@ -253,12 +253,16 @@ class ReorderRecommendationService:
         acknowledged_at = (
             recommendation.acknowledged_at
             if recommendation.acknowledged_at is not None
-            else now if target_status == "acknowledged" else None
+            else now
+            if target_status == "acknowledged"
+            else None
         )
         dismissed_at = (
             recommendation.dismissed_at
             if recommendation.dismissed_at is not None
-            else now if target_status == "dismissed" else None
+            else now
+            if target_status == "dismissed"
+            else None
         )
 
         try:

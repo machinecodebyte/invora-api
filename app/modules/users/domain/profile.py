@@ -88,7 +88,9 @@ def _validate_profile_field(field: str, value: str) -> None:
         raise InvalidProfileUpdateError("Phone number format is invalid.")
 
     if field == "avatar_url" and not value.startswith(("http://", "https://")):
-        raise InvalidProfileUpdateError("Avatar URL must start with http:// or https://.")
+        raise InvalidProfileUpdateError(
+            "Avatar URL must start with http:// or https://."
+        )
 
     if field == "timezone" and any(character.isspace() for character in value):
         raise InvalidProfileUpdateError("Timezone cannot contain spaces.")

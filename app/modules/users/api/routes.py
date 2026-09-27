@@ -24,8 +24,7 @@ router = APIRouter(prefix="/users", tags=["Users"])
     status_code=status.HTTP_200_OK,
     summary="Get my profile",
     description=(
-        "Requires a Bearer access token and returns the current user's safe "
-        "profile."
+        "Requires a Bearer access token and returns the current user's safe profile."
     ),
 )
 async def get_my_profile(

@@ -14,7 +14,17 @@ logger = logging.getLogger(__name__)
 FALLBACK_PORTS = (8000, 8001, 8002, 8010)
 
 
-def resolve_api_port(host: str, configured_port: int) -> int:
+def resolve_api_port(
+    host: str,
+    configured_port: int,
+    *,
+    allow_fallback: bool = False,
+) -> int:
+    if not allow_fallback:
+        # Let Uvicorn own the bind operation. A preflight socket probe is racy;
+        # production must fail loudly instead of silently selecting another port.
+        return configured_port
+
     candidates = (configured_port,) + tuple(
         port for port in FALLBACK_PORTS if port != configured_port
     )
@@ -45,7 +55,11 @@ def _is_port_available(host: str, port: int) -> bool:
 def main() -> int:
     settings = get_settings()
     configure_logging(settings.LOG_LEVEL)
-    api_port = resolve_api_port(settings.API_HOST, settings.API_PORT)
+    api_port = resolve_api_port(
+        settings.API_HOST,
+        settings.API_PORT,
+        allow_fallback=settings.API_PORT_FALLBACK_ENABLED,
+    )
     startup_context = settings.startup_log_context
     startup_context["api_port"] = api_port
     logger.info(

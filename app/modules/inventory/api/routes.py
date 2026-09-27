@@ -214,8 +214,7 @@ async def list_stock_movements(
     return StockMovementListResponse(
         data=StockMovementListData(
             movements=[
-                StockMovementPublic.model_validate(movement)
-                for movement in movements
+                StockMovementPublic.model_validate(movement) for movement in movements
             ],
             total=total,
             limit=limit,

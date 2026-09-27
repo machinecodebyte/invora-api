@@ -68,3 +68,22 @@ class RevokedRefreshTokenError(AppError):
             code="revoked_refresh_token",
             status_code=401,
         )
+
+
+class AuthRateLimitExceededError(AppError):
+    def __init__(self, retry_after_seconds: int) -> None:
+        super().__init__(
+            "Too many authentication attempts. Please try again later.",
+            code="authentication_rate_limited",
+            status_code=429,
+            headers={"Retry-After": str(max(1, retry_after_seconds))},
+        )
+
+
+class AuthRateLimitUnavailableError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Authentication is temporarily unavailable. Please try again later.",
+            code="authentication_rate_limit_unavailable",
+            status_code=503,
+        )

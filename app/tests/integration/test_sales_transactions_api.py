@@ -394,8 +394,7 @@ async def test_csv_upload_transactions_are_visible_in_transaction_list(
     upload_response = await _upload_csv(
         sales_client,
         access_token,
-        "sale_date,product_sku,quantity,unit_price\n"
-        "2026-07-01,MILK-1,2.000,10.00\n",
+        "sale_date,product_sku,quantity,unit_price\n2026-07-01,MILK-1,2.000,10.00\n",
     )
 
     response = await sales_client.get(

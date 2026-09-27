@@ -21,6 +21,7 @@ def pytest_configure() -> None:
     os.environ["CORS_ORIGINS"] = "http://localhost:3000,http://localhost:5173"
     os.environ["LOG_LEVEL"] = "WARNING"
     os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-foundation"
+    os.environ["AUTH_RATE_LIMIT_ENABLED"] = "false"
     os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
     os.environ["REFRESH_TOKEN_EXPIRE_DAYS"] = "14"
     os.environ["REFRESH_COOKIE_NAME"] = "invora_refresh_token"
@@ -766,9 +767,7 @@ class FakeInventoryRepository:
         if product_id is not None:
             items = [item for item in items if item.product_id == product_id]
         if category_id is not None:
-            items = [
-                item for item in items if item.product.category_id == category_id
-            ]
+            items = [item for item in items if item.product.category_id == category_id]
         if is_active is not None:
             items = [item for item in items if item.is_active == is_active]
         if stock_status is not None:
@@ -850,9 +849,7 @@ class FakeInventoryRepository:
         ]
         if product_id is not None:
             movements = [
-                movement
-                for movement in movements
-                if movement.product_id == product_id
+                movement for movement in movements if movement.product_id == product_id
             ]
         if movement_type is not None:
             movements = [
@@ -862,9 +859,7 @@ class FakeInventoryRepository:
             ]
         if date_from is not None:
             movements = [
-                movement
-                for movement in movements
-                if movement.occurred_at >= date_from
+                movement for movement in movements if movement.occurred_at >= date_from
             ]
         if date_to is not None:
             movements = [
@@ -1372,10 +1367,7 @@ class FakeSalesRepository:
                 {
                     "period_start": period_start,
                     "total_quantity": sum(
-                        (
-                            transaction.quantity
-                            for transaction in period_transactions
-                        ),
+                        (transaction.quantity for transaction in period_transactions),
                         Decimal("0.000"),
                     ),
                     "total_amount": sum(
@@ -1416,10 +1408,7 @@ class FakeSalesRepository:
                     "product_name": product.name,
                     "sku": product.sku,
                     "total_quantity": sum(
-                        (
-                            transaction.quantity
-                            for transaction in product_transactions
-                        ),
+                        (transaction.quantity for transaction in product_transactions),
                         Decimal("0.000"),
                     ),
                     "total_amount": sum(
@@ -2489,8 +2478,7 @@ class FakeDashboardAnalyticsRepository:
                 [
                     transaction
                     for transaction in self.sales_repository.transactions_by_id.values()
-                    if transaction.user_id == user_id
-                    and transaction.deleted_at is None
+                    if transaction.user_id == user_id and transaction.deleted_at is None
                 ]
             )
         }
@@ -2524,8 +2512,7 @@ class FakeDashboardAnalyticsRepository:
         rows = [
             self._inventory_preview(item)
             for item in self.inventory_repository.items_by_id.values()
-            if item.user_id == user_id
-            and self._stock_status(item) == "low_stock"
+            if item.user_id == user_id and self._stock_status(item) == "low_stock"
         ]
         rows.sort(key=lambda row: (row["current_stock"], row["sku"]))
         return rows[:limit]
@@ -2539,8 +2526,7 @@ class FakeDashboardAnalyticsRepository:
         rows = [
             self._inventory_preview(item)
             for item in self.inventory_repository.items_by_id.values()
-            if item.user_id == user_id
-            and self._stock_status(item) == "out_of_stock"
+            if item.user_id == user_id and self._stock_status(item) == "out_of_stock"
         ]
         rows.sort(key=lambda row: row["sku"])
         return rows[:limit]
@@ -2602,9 +2588,7 @@ class FakeDashboardAnalyticsRepository:
         )
         return {
             "latest_forecast_run": self._forecast_run_dict(latest_run),
-            "latest_completed_forecast_run": self._forecast_run_dict(
-                latest_completed
-            ),
+            "latest_completed_forecast_run": self._forecast_run_dict(latest_completed),
         }
 
     async def get_forecast_run_counts_for_user(
@@ -3302,7 +3286,8 @@ class FakeReportsRepository:
         date_to: date | None,
     ) -> list[FakeForecastRun]:
         rows = [
-            run for run in self.forecast_repository.runs_by_id.values()
+            run
+            for run in self.forecast_repository.runs_by_id.values()
             if run.user_id == user_id
         ]
         if forecast_run_id is not None:
@@ -3321,7 +3306,8 @@ class FakeReportsRepository:
         stock_status: str | None,
     ) -> list[FakeInventoryItem]:
         rows = [
-            item for item in self.inventory_repository.items_by_id.values()
+            item
+            for item in self.inventory_repository.items_by_id.values()
             if item.user_id == user_id
         ]
         if category_id is not None:
@@ -3339,7 +3325,8 @@ class FakeReportsRepository:
         status: str | None,
     ) -> list[FakeReorderRecommendation]:
         rows = [
-            row for row in self.recommendation_repository.recommendations_by_id.values()
+            row
+            for row in self.recommendation_repository.recommendations_by_id.values()
             if row.user_id == user_id
         ]
         if forecast_run_id is not None:
@@ -3372,10 +3359,12 @@ class FakeReportsRepository:
             ]
         if category_id is not None:
             rows = [
-                prediction for prediction in rows
+                prediction
+                for prediction in rows
                 if self.product_repository.products_by_id[
                     prediction.product_id
-                ].category_id == category_id
+                ].category_id
+                == category_id
             ]
         if date_from is not None:
             rows = [
@@ -3385,9 +3374,7 @@ class FakeReportsRepository:
             ]
         if date_to is not None:
             rows = [
-                prediction
-                for prediction in rows
-                if prediction.forecast_date <= date_to
+                prediction for prediction in rows if prediction.forecast_date <= date_to
             ]
         return rows
 

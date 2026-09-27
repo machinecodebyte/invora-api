@@ -374,7 +374,7 @@ def _create_job_record(
     job_id = uuid4()
     job = FakeBackgroundJob(
         id=job_id,
-        rq_job_id=f"forecast-processing:{job_id}",
+        rq_job_id=f"forecast-processing-{job_id}",
         user_id=user_id,
         job_type=JobType.FORECAST_PROCESSING.value,
         entity_type=JobEntityType.FORECAST_RUN.value,
@@ -429,6 +429,7 @@ async def test_enqueue_forecast_job_succeeds_and_is_idempotent(
     assert first.status_code == 202
     assert second.status_code == 202
     assert first.json()["data"]["job_id"] == second.json()["data"]["job_id"]
+    assert first.json()["data"]["rq_job_id"].replace("-", "").isalnum()
     assert first.json()["data"]["queue_name"] == "invora-forecasting"
     assert len(jobs_repository.jobs_by_id) == 1
     assert len(jobs_dispatcher.enqueued) == 1

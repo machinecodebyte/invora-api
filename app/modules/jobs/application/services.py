@@ -236,7 +236,11 @@ class BackgroundJobService:
         commit: bool = True,
     ) -> Any:
         job_id = uuid4()
-        rq_job_id = f"forecast-processing:{job_id}"
+        # RQ accepts only letters, numbers, underscores, and dashes in a job
+        # identifier. Keep the durable database identifier compatible with the
+        # queue implementation so creating a forecast job cannot fail at
+        # dispatch time.
+        rq_job_id = f"forecast-processing-{job_id}"
         try:
             job = await self.repository.create_background_job(
                 values={

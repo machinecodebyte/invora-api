@@ -343,8 +343,7 @@ class InventoryRepository:
             filters.extend(
                 [
                     InventoryItemModel.is_active.is_(True),
-                    InventoryItemModel.current_stock
-                    > InventoryItemModel.minimum_stock,
+                    InventoryItemModel.current_stock > InventoryItemModel.minimum_stock,
                 ]
             )
         return filters

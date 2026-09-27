@@ -310,9 +310,7 @@ async def test_predictions_endpoint_filters_by_date_range(
 
     assert response.status_code == 200
     assert response.json()["data"]["total"] == 2
-    assert {prediction["forecast_date"] for prediction in predictions} == {
-        "2026-07-11"
-    }
+    assert {prediction["forecast_date"] for prediction in predictions} == {"2026-07-11"}
 
 
 @pytest.mark.asyncio

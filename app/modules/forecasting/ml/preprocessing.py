@@ -58,9 +58,7 @@ def aggregate_daily_sales(
     if records:
         sales_frame = pd.DataFrame(records)
         grouped = (
-            sales_frame.groupby(["product_id", "sale_date"], as_index=False)[
-                "quantity"
-            ]
+            sales_frame.groupby(["product_id", "sale_date"], as_index=False)["quantity"]
             .sum()
             .sort_values(["product_id", "sale_date"])
         )

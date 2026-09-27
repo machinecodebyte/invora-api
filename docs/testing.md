@@ -325,3 +325,23 @@ analytics/reporting review.
 Foundation and Auth tests should stay deterministic and fast. Future modules
 should add focused unit tests for domain/application logic and integration tests
 for API and database boundaries.
+
+## Final hardening validation
+
+The final full backend regression completed with 336 collected tests, zero
+failures/errors, and one explicit skip. Ruff reported all checks passing and all
+234 checked files already formatted. The focused queue/readiness, auth rate-limit,
+and forecast job tests cover worker liveness, safe rate-limit behavior, RQ-safe
+job identifiers, and ORM registry availability in a standalone worker process.
+
+Run the local gates with:
+
+```powershell
+python -m pytest -q
+ruff check app
+ruff format --check app
+```
+
+The isolated Compose stack is additionally used for browser-level live contracts;
+it is not a replacement for managed-environment monitoring, vulnerability scans,
+or deployment smoke checks.

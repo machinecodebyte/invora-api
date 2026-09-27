@@ -5,7 +5,10 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import Settings, get_settings
 from app.modules.auth.api.cookies import clear_refresh_cookie, set_refresh_cookie
-from app.modules.auth.api.dependencies import get_auth_service, get_current_user
+from app.modules.auth.api.dependencies import (
+    get_auth_service,
+    get_current_user,
+)
 from app.modules.auth.api.schemas import (
     AccessTokenResponse,
     AuthData,
@@ -24,6 +27,10 @@ from app.modules.auth.domain.exceptions import (
     InvalidRefreshTokenError,
     RevokedRefreshTokenError,
 )
+from app.modules.auth.infrastructure.rate_limit import (
+    AuthRateLimiter,
+    get_auth_rate_limiter,
+)
 from app.shared.responses import error_response
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -41,8 +48,10 @@ async def register(
     request: Request,
     response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    rate_limiter: Annotated[AuthRateLimiter, Depends(get_auth_rate_limiter)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthResponse:
+    await rate_limiter.enforce_registration(client_ip=_client_ip(request))
     result = await auth_service.register(
         email=payload.email,
         password=payload.password,
@@ -70,8 +79,13 @@ async def login(
     request: Request,
     response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    rate_limiter: Annotated[AuthRateLimiter, Depends(get_auth_rate_limiter)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthResponse:
+    await rate_limiter.enforce_login(
+        client_ip=_client_ip(request),
+        email=payload.email,
+    )
     result = await auth_service.login(
         email=payload.email,
         password=payload.password,
@@ -108,8 +122,10 @@ async def refresh(
     request: Request,
     response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    rate_limiter: Annotated[AuthRateLimiter, Depends(get_auth_rate_limiter)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthResponse | JSONResponse:
+    await rate_limiter.enforce_refresh(client_ip=_client_ip(request))
     refresh_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     try:
         result = await auth_service.refresh_token(

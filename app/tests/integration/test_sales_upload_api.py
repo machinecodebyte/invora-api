@@ -79,8 +79,7 @@ async def test_upload_valid_csv_succeeds(sales_client, sales_repository) -> None
     response = await _upload_csv(
         sales_client,
         access_token,
-        "sale_date,product_sku,quantity,unit_price\n"
-        "2026-07-01, milk 1 ,2.000,12.50\n",
+        "sale_date,product_sku,quantity,unit_price\n2026-07-01, milk 1 ,2.000,12.50\n",
     )
     upload = response.json()["data"]["upload"]
 

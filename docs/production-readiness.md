@@ -26,3 +26,15 @@
 The backend is ready for local frontend integration and a controlled demo. It
 is not staging-ready until the secret, dependency, edge-security, and
 observability items above are completed.
+
+## Final hardening update
+
+The dependency-lock, worker-readiness, migration-order, port-binding, and
+application auth-rate-limit findings are resolved and have test coverage. The
+final backend suite passed 336 collected tests with zero failures/errors.
+
+The service is ready for controlled staging only after deployment-specific
+secrets, TLS/ingress configuration, automated vulnerability scanning,
+observability/alerting, backup/restore verification, and managed-service
+operational ownership are supplied. Those concerns cannot be certified from a
+local repository and disposable Compose run.

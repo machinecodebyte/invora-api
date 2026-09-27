@@ -16,3 +16,7 @@ Invora backend.
 - `security-audit.md`: verified controls and remaining security work
 - `production-readiness.md`: local verification and staging prerequisites
 - `progress.md`: current implementation status and pending modules
+
+For disposable browser-contract validation, copy `.live.env.example` to the
+ignored `.live.env`; see `deployment.md` and `testing.md` for the isolated
+Compose lifecycle and cleanup command.

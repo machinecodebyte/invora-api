@@ -1,5 +1,7 @@
 import pytest
 
+from app.modules.auth.domain.exceptions import AuthRateLimitExceededError
+
 REFRESH_COOKIE_NAME = "invora_refresh_token"
 REFRESH_COOKIE_PATH = "/api/v1/auth"
 REGISTER_PAYLOAD = {
@@ -86,6 +88,35 @@ async def test_login_invalid_password_returns_401(auth_client) -> None:
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "invalid_credentials"
+
+
+@pytest.mark.asyncio
+async def test_login_rate_limit_returns_safe_error_and_retry_after(
+    app,
+    auth_client,
+) -> None:
+    from app.modules.auth.infrastructure.rate_limit import get_auth_rate_limiter
+
+    class RejectingRateLimiter:
+        async def enforce_login(self, *, client_ip: str | None, email: str) -> None:
+            raise AuthRateLimitExceededError(45)
+
+    app.dependency_overrides[get_auth_rate_limiter] = lambda: RejectingRateLimiter()
+
+    response = await auth_client.post(
+        "/api/v1/auth/login",
+        json={"email": "owner@example.com", "password": "StrongPass1!"},
+    )
+
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == "45"
+    assert response.json() == {
+        "success": False,
+        "error": {
+            "code": "authentication_rate_limited",
+            "message": "Too many authentication attempts. Please try again later.",
+        },
+    }
 
 
 @pytest.mark.asyncio

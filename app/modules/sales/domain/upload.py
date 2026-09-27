@@ -149,8 +149,7 @@ def parse_sales_csv(content: bytes) -> list[ParsedCsvRow]:
                 continue
 
             normalized_row = {
-                _normalize_header(key): (value or "")
-                for key, value in raw_row.items()
+                _normalize_header(key): (value or "") for key, value in raw_row.items()
             }
             rows.append(ParsedCsvRow(row_number=index, raw_data=normalized_row))
     except csv.Error as exc:

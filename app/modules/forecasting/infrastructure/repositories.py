@@ -252,7 +252,9 @@ class ForecastRunRepository:
         forecast_run_id: UUID,
     ) -> int:
         result = await self.session.execute(
-            select(func.count()).select_from(ForecastPredictionModel).where(
+            select(func.count())
+            .select_from(ForecastPredictionModel)
+            .where(
                 ForecastPredictionModel.user_id == user_id,
                 ForecastPredictionModel.forecast_run_id == forecast_run_id,
             )
@@ -551,12 +553,8 @@ class ForecastRunRepository:
                 filters.append(
                     or_(
                         ProductModel.name.ilike(f"%{search_value}%"),
-                        ProductModel.normalized_sku.ilike(
-                            f"%{search_value.upper()}%"
-                        ),
-                        ForecastPredictionModel.model_name.ilike(
-                            f"%{search_value}%"
-                        ),
+                        ProductModel.normalized_sku.ilike(f"%{search_value.upper()}%"),
+                        ForecastPredictionModel.model_name.ilike(f"%{search_value}%"),
                     )
                 )
         return filters

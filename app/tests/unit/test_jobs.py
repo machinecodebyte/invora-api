@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.core.exceptions import AppError
+from app.db.base import Base
+from app.db.models import ensure_models_registered
 from app.modules.jobs.domain.enums import JobEntityType, JobStatus, JobType
 from app.modules.jobs.domain.exceptions import (
     InvalidJobFilterError,
@@ -143,7 +145,7 @@ def _job(
     job_id = uuid4()
     return JobObject(
         id=job_id,
-        rq_job_id=f"forecast-processing:{job_id}",
+        rq_job_id=f"forecast-processing-{job_id}",
         user_id=user_id,
         job_type=JobType.FORECAST_PROCESSING.value,
         entity_type=JobEntityType.FORECAST_RUN.value,
@@ -196,6 +198,12 @@ def test_rq_status_mapping_and_safe_filter_validation() -> None:
         ensure_job_sort_field("unsafe_sql")
     with pytest.raises(InvalidJobFilterError):
         normalize_job_sort_order("sideways")
+
+
+def test_orm_registry_includes_worker_foreign_key_dependencies() -> None:
+    ensure_models_registered()
+
+    assert {"background_jobs", "users"}.issubset(Base.metadata.tables)
 
 
 def test_result_summary_is_sanitized() -> None:
@@ -268,11 +276,13 @@ def test_rq_simple_worker_executes_enqueued_job() -> None:
 
     connection = fakeredis.FakeRedis()
     queue = Queue("invora-test-forecasting", connection=connection)
-    job = queue.enqueue(add_numbers_job, 2, 3)
+    rq_job_id = f"forecast-processing-{uuid4()}"
+    job = queue.enqueue(add_numbers_job, 2, 3, job_id=rq_job_id)
 
     worker = SimpleWorker([queue], connection=connection)
     worker.work(burst=True)
     job.refresh()
 
     assert job.is_finished
+    assert job.id == rq_job_id
     assert job.return_value() == 5

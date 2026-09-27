@@ -1,18 +1,19 @@
-name: invora
+name: ${COMPOSE_PROJECT_NAME:-invora}
 
 services:
   backend:
     build:
       context: .
-    container_name: invora-backend
+    container_name: ${BACKEND_CONTAINER_NAME:-invora-backend}
     env_file:
-      - .env
+      - ${INVORA_ENV_FILE:-.env}
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 8000
       DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL in .env}
       REDIS_URL: ${DOCKER_REDIS_URL:?Set DOCKER_REDIS_URL in .env}
       WORKER_ENABLED: "true"
+      API_PORT_FALLBACK_ENABLED: "false"
     ports:
       - "${BACKEND_HOST_PORT:-8000}:8000"
     depends_on:
@@ -20,6 +21,8 @@ services:
         condition: service_healthy
       invora-redis:
         condition: service_healthy
+      invora-migrate:
+        condition: service_completed_successfully
     networks:
       - invora-network
     healthcheck:
@@ -28,38 +31,57 @@ services:
           "CMD",
           "python",
           "-c",
-          "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/v1/health')",
+          "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/v1/health/ready')",
         ]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 45s
+
+  invora-migrate:
+    build:
+      context: .
+    container_name: ${MIGRATE_CONTAINER_NAME:-invora-migrate}
+    env_file:
+      - ${INVORA_ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL in .env}
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      invora-postgres:
+        condition: service_healthy
+    networks:
+      - invora-network
+    restart: "no"
 
   invora-worker:
     build:
       context: .
-    container_name: invora-worker
+    container_name: ${WORKER_CONTAINER_NAME:-invora-worker}
     env_file:
-      - .env
+      - ${INVORA_ENV_FILE:-.env}
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 8000
       DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL in .env}
       REDIS_URL: ${DOCKER_REDIS_URL:?Set DOCKER_REDIS_URL in .env}
       WORKER_ENABLED: "true"
+      API_PORT_FALLBACK_ENABLED: "false"
     command: ["python", "-m", "app.modules.jobs.worker"]
     depends_on:
       invora-postgres:
         condition: service_healthy
       invora-redis:
         condition: service_healthy
+      invora-migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     networks:
       - invora-network
 
   invora-postgres:
     image: postgres:16-alpine
-    container_name: invora-postgres
+    container_name: ${POSTGRES_CONTAINER_NAME:-invora-postgres}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
@@ -78,7 +100,7 @@ services:
 
   invora-redis:
     image: redis:7-alpine
-    container_name: invora-redis
+    container_name: ${REDIS_CONTAINER_NAME:-invora-redis}
     ports:
       - "${REDIS_HOST_PORT:-56379}:6379"
     volumes:
@@ -93,11 +115,11 @@ services:
 
 volumes:
   invora-postgres-data:
-    name: invora-postgres-data
+    name: ${POSTGRES_VOLUME_NAME:-invora-postgres-data}
   invora-redis-data:
-    name: invora-redis-data
+    name: ${REDIS_VOLUME_NAME:-invora-redis-data}
 
 networks:
   invora-network:
-    name: invora-network
+    name: ${INVORA_NETWORK_NAME:-invora-network}
     driver: bridge

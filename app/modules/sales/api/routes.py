@@ -251,9 +251,7 @@ async def get_sales_transaction_summary(
         date_from=date_from,
         date_to=date_to,
     )
-    return SalesTransactionSummaryResponse(
-        data=SalesTransactionSummaryData(**summary)
-    )
+    return SalesTransactionSummaryResponse(data=SalesTransactionSummaryData(**summary))
 
 
 @router.get(
@@ -329,8 +327,7 @@ async def get_sales_by_product_summary(
     tags=["Sales Upload"],
     summary="Get sales upload detail",
     description=(
-        "Requires a Bearer access token and returns an owned upload batch "
-        "summary."
+        "Requires a Bearer access token and returns an owned upload batch summary."
     ),
 )
 async def get_upload_batch(

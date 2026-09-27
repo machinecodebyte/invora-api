@@ -375,9 +375,7 @@ async def test_generate_recommendations_supports_safe_refresh(
         "/api/v1/recommendations",
         headers=_auth_headers(access_token),
     )
-    first_ids = {
-        row["id"] for row in first_list.json()["data"]["recommendations"]
-    }
+    first_ids = {row["id"] for row in first_list.json()["data"]["recommendations"]}
     target_product_id = UUID(products[3]["id"])
     for item in inventory_repository.items_by_id.values():
         if item.product_id == target_product_id:
@@ -454,8 +452,9 @@ async def test_recommendation_run_list_summary_detail_and_status_update(
     assert run_response.status_code == 200
     assert run_response.json()["data"]["total"] == 1
     assert detail_response.status_code == 200
-    assert detail_response.json()["data"]["recommendation"]["id"] == (
-        high_recommendation["id"]
+    assert (
+        detail_response.json()["data"]["recommendation"]["id"]
+        == (high_recommendation["id"])
     )
     assert summary_response.status_code == 200
     assert summary_response.json()["data"]["total_recommendations"] == 5

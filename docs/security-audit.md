@@ -34,3 +34,17 @@ claim of production certification.
 - Add real PostgreSQL/Redis end-to-end tests for a representative authenticated
   business journey in CI; most API tests intentionally use deterministic
   dependency overrides.
+
+## Final hardening update
+
+Authentication now has Redis-backed IP/account throttling with HMAC-derived
+subjects, generic 429 responses, and `Retry-After`; neither credentials nor raw
+rate-limit identities are logged. The API binds only its configured port unless
+an explicit local fallback is enabled. Production browser responses receive a
+nonce CSP from the frontend proxy, while FastAPI remains the authorization and
+ownership enforcement point.
+
+Dependency versions are now locked for runtime and development installation.
+Remaining security work is operational: automated dependency/SAST scanning,
+TLS/edge policy, secret-manager deployment, central log retention, and a
+production incident/monitoring runbook.

@@ -1,3 +1,6 @@
+from collections.abc import Mapping
+
+
 class AppError(Exception):
     def __init__(
         self,
@@ -5,11 +8,13 @@ class AppError(Exception):
         *,
         code: str = "app_error",
         status_code: int = 400,
+        headers: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.code = code
         self.status_code = status_code
+        self.headers = headers
 
 
 class ServiceUnavailableError(AppError):

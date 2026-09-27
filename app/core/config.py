@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = Field(..., min_length=1)
     API_HOST: str = Field(default="127.0.0.1", min_length=1)
     API_PORT: int = Field(default=8000, ge=1, le=65535)
+    API_PORT_FALLBACK_ENABLED: bool = False
     DATABASE_URL: str = Field(..., min_length=1)
     REDIS_URL: str = Field(..., min_length=1)
     WORKER_ENABLED: bool = True
@@ -27,9 +28,16 @@ class Settings(BaseSettings):
     RQ_RESULT_TTL_SECONDS: int = Field(default=86400, ge=0)
     RQ_FAILURE_TTL_SECONDS: int = Field(default=604800, ge=0)
     RQ_WORKER_NAME_PREFIX: str = Field(default="invora-worker", min_length=1)
+    RQ_WORKER_TTL_SECONDS: int = Field(default=60, gt=15)
     CORS_ORIGINS: str = Field(..., min_length=1)
     LOG_LEVEL: str = Field(..., min_length=1)
     JWT_SECRET_KEY: SecretStr = Field(..., min_length=16)
+    AUTH_RATE_LIMIT_ENABLED: bool = True
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: int = Field(default=900, ge=1, le=86400)
+    AUTH_LOGIN_MAX_ATTEMPTS_PER_IP: int = Field(default=20, ge=1, le=10000)
+    AUTH_LOGIN_MAX_ATTEMPTS_PER_ACCOUNT: int = Field(default=10, ge=1, le=10000)
+    AUTH_REGISTER_MAX_ATTEMPTS_PER_IP: int = Field(default=5, ge=1, le=10000)
+    AUTH_REFRESH_MAX_ATTEMPTS_PER_IP: int = Field(default=30, ge=1, le=10000)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(..., gt=0)
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=14, gt=0)
     REFRESH_COOKIE_NAME: str = Field(default="invora_refresh_token", min_length=1)
@@ -140,6 +148,16 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         if is_production and self.REFRESH_COOKIE_SECURE is False:
             msg = "REFRESH_COOKIE_SECURE must be true when APP_ENV is production"
+            raise ValueError(msg)
+        if self.API_PORT_FALLBACK_ENABLED and self.APP_ENV.strip().lower() not in {
+            "dev",
+            "development",
+            "local",
+        }:
+            msg = "API_PORT_FALLBACK_ENABLED is allowed only in local development"
+            raise ValueError(msg)
+        if is_production and not self.AUTH_RATE_LIMIT_ENABLED:
+            msg = "AUTH_RATE_LIMIT_ENABLED must be true when APP_ENV is production"
             raise ValueError(msg)
         if self.REFRESH_COOKIE_SAMESITE == "none" and not self.refresh_cookie_secure:
             msg = "REFRESH_COOKIE_SAMESITE=none requires REFRESH_COOKIE_SECURE=true"

@@ -4,6 +4,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
+from app.db.models import ensure_models_registered
+
+ensure_models_registered()
 
 settings = get_settings()
 

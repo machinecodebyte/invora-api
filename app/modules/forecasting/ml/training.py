@@ -38,8 +38,12 @@ def train_with_validation(
     validation_model = _new_model()
     validation_model.fit(train_frame[list(FEATURE_COLUMNS)], train_frame["quantity"])
     final_model = train_model(frame)
-    return final_model, train_frame, validation_frame.assign(
-        predicted=validation_model.predict(validation_frame[list(FEATURE_COLUMNS)])
+    return (
+        final_model,
+        train_frame,
+        validation_frame.assign(
+            predicted=validation_model.predict(validation_frame[list(FEATURE_COLUMNS)])
+        ),
     )
 
 

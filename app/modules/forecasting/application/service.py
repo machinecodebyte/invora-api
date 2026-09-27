@@ -334,11 +334,12 @@ class ForecastResultService:
             user_id=user_id,
             run_id=run_id,
         )
-        forecast_start_date, forecast_end_date = (
-            await self.repository.get_prediction_date_range(
-                user_id=user_id,
-                forecast_run_id=run.id,
-            )
+        (
+            forecast_start_date,
+            forecast_end_date,
+        ) = await self.repository.get_prediction_date_range(
+            user_id=user_id,
+            forecast_run_id=run.id,
         )
         total_predicted_demand = await self.repository.get_total_predicted_demand(
             user_id=user_id,
@@ -433,11 +434,12 @@ class ForecastResultService:
         run, _ = await self._get_ready_run(user_id=user_id, run_id=run_id)
         if product_id is not None:
             await self._ensure_product_owned(user_id=user_id, product_id=product_id)
-        forecast_start_date, forecast_end_date = (
-            await self.repository.get_prediction_date_range(
-                user_id=user_id,
-                forecast_run_id=run.id,
-            )
+        (
+            forecast_start_date,
+            forecast_end_date,
+        ) = await self.repository.get_prediction_date_range(
+            user_id=user_id,
+            forecast_run_id=run.id,
         )
         prediction_points = await self.repository.get_chart_predictions_for_run(
             user_id=user_id,

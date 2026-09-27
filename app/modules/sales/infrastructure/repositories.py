@@ -161,7 +161,9 @@ class SalesUploadRepository:
             SalesUploadRejectedRowModel.upload_batch_id == upload_batch_id,
         ]
         total_result = await self.session.execute(
-            select(func.count()).select_from(SalesUploadRejectedRowModel).where(*filters)
+            select(func.count())
+            .select_from(SalesUploadRejectedRowModel)
+            .where(*filters)
         )
         total = int(total_result.scalar_one())
         result = await self.session.execute(

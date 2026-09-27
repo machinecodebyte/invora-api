@@ -108,3 +108,21 @@ The cookie path is derived from the configured API prefix and Auth route. Login,
 registration, and successful refresh set or rotate it; failed refresh and logout
 clear it with matching attributes. Configure CORS_ORIGINS with explicit browser
 origins and never a wildcard when browser credentials are enabled.
+
+## Final hardening controls
+
+`API_PORT_FALLBACK_ENABLED` is false by default and must remain false in
+production. A service that cannot bind its configured port now fails instead of
+silently listening elsewhere.
+
+Authentication abuse controls are Redis-backed and enabled in production:
+`AUTH_RATE_LIMIT_WINDOW_SECONDS`, the Login IP/account limits, the Register IP
+limit, and the Refresh IP limit. The limiter derives HMAC-based Redis keys rather
+than storing raw email addresses or IP values. Redis outages fail closed for Auth
+in production and return a safe, retryable response; local/test behavior remains
+explicitly configurable.
+
+`RQ_WORKER_TTL_SECONDS` controls readiness liveness. It must exceed the worker
+dequeue interval and is validated above a minimum safe value. `/health/ready`
+requires a healthy database, Redis, and a live worker for the configured queues
+when `WORKER_ENABLED=true`.

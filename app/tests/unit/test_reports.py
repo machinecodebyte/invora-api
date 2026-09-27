@@ -55,10 +55,13 @@ def test_report_filter_validators() -> None:
 
 
 def test_safe_report_filename_generation() -> None:
-    assert build_safe_report_filename(
-        "Demand Forecast / Report!",
-        date(2026, 7, 10),
-    ) == "invora_demand_forecast_report_2026-07-10.csv"
+    assert (
+        build_safe_report_filename(
+            "Demand Forecast / Report!",
+            date(2026, 7, 10),
+        )
+        == "invora_demand_forecast_report_2026-07-10.csv"
+    )
 
 
 def test_csv_serialization_formats_public_values() -> None:

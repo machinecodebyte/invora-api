@@ -44,7 +44,12 @@ def main() -> int:
                 **settings.startup_log_context,
             },
         )
-        worker = Worker(queues, connection=connection, name=worker_name)
+        worker = Worker(
+            queues,
+            connection=connection,
+            name=worker_name,
+            worker_ttl=settings.RQ_WORKER_TTL_SECONDS,
+        )
         worker.work(with_scheduler=False)
         return 0
     except Exception:
