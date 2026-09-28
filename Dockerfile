@@ -14,9 +14,11 @@ COPY app ./app
 
 COPY alembic ./alembic
 COPY alembic.ini ./
+COPY start-container.sh ./
+RUN chmod 755 start-container.sh
 
 USER app
 
 EXPOSE 8000
 
-CMD ["python", "-m", "app.server"]
+CMD ["./start-container.sh"]
