@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import logging
 import socket
 import sys
@@ -52,26 +53,71 @@ def _is_port_available(host: str, port: int) -> bool:
     return True
 
 
+# def main() -> int:
+#     settings = get_settings()
+#     configure_logging(settings.LOG_LEVEL)
+#     api_port = resolve_api_port(
+#         settings.API_HOST,
+#         settings.API_PORT,
+#         allow_fallback=settings.API_PORT_FALLBACK_ENABLED,
+#     )
+#     startup_context = settings.startup_log_context
+#     startup_context["api_port"] = api_port
+#     logger.info(
+#         "api_server_starting",
+#         extra={"app_name": settings.APP_NAME, **startup_context},
+#     )
+#     from app.main import app
+
+#     app.state.api_port = api_port
+#     uvicorn.run(app, host=settings.API_HOST, port=api_port)
+#     return 0
+
+
 def main() -> int:
     settings = get_settings()
     configure_logging(settings.LOG_LEVEL)
+
+    # Render automatically provides PORT.
+    # If PORT exists, bind publicly on 0.0.0.0.
+    # Otherwise use the local .env configuration.
+    render_port = os.getenv("PORT")
+
+    if render_port:
+        api_host = "0.0.0.0"
+        configured_port = int(render_port)
+        allow_fallback = False
+    else:
+        api_host = settings.API_HOST
+        configured_port = settings.API_PORT
+        allow_fallback = settings.API_PORT_FALLBACK_ENABLED
+
     api_port = resolve_api_port(
-        settings.API_HOST,
-        settings.API_PORT,
-        allow_fallback=settings.API_PORT_FALLBACK_ENABLED,
+        api_host,
+        configured_port,
+        allow_fallback=allow_fallback,
     )
+
     startup_context = settings.startup_log_context
+    startup_context["api_host"] = api_host
     startup_context["api_port"] = api_port
+
     logger.info(
         "api_server_starting",
         extra={"app_name": settings.APP_NAME, **startup_context},
     )
+
     from app.main import app
 
     app.state.api_port = api_port
-    uvicorn.run(app, host=settings.API_HOST, port=api_port)
-    return 0
 
+    uvicorn.run(
+        app,
+        host=api_host,
+        port=api_port,
+    )
+
+    return 0
 
 if __name__ == "__main__":
     sys.exit(main())
