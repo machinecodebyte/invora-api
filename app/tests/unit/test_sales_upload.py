@@ -7,6 +7,9 @@ from app.modules.sales.domain.exceptions import (
     MissingSalesCsvColumnsError,
 )
 from app.modules.sales.domain.upload import (
+    MAX_CSV_COLUMNS,
+    MAX_CSV_FIELD_CHARACTERS,
+    MAX_CSV_ROWS,
     ParsedCsvRow,
     RejectedSalesRow,
     ValidSalesRow,
@@ -119,6 +122,28 @@ def test_safe_filename_handling() -> None:
 def test_csv_parser_rejects_invalid_format() -> None:
     with pytest.raises(InvalidSalesCsvFormatError):
         parse_sales_csv(b"")
+
+
+def test_csv_parser_rejects_resource_exhaustion_shapes() -> None:
+    too_many_rows = (
+        "sale_date,product_sku,quantity\n"
+        + "2026-07-01,MILK-1,1\n" * (MAX_CSV_ROWS + 1)
+    ).encode()
+    too_many_columns = (
+        ",".join(f"column_{index}" for index in range(MAX_CSV_COLUMNS + 1)) + "\n"
+    ).encode()
+    oversized_field = (
+        "sale_date,product_sku,quantity\n2026-07-01,"
+        + "M" * (MAX_CSV_FIELD_CHARACTERS + 1)
+        + ",1\n"
+    ).encode()
+
+    with pytest.raises(InvalidSalesCsvFormatError):
+        parse_sales_csv(too_many_rows)
+    with pytest.raises(InvalidSalesCsvFormatError):
+        parse_sales_csv(too_many_columns)
+    with pytest.raises(InvalidSalesCsvFormatError):
+        parse_sales_csv(oversized_field)
 
 
 def test_row_validation_unknown_sku_reason() -> None:

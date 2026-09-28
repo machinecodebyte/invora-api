@@ -4,6 +4,7 @@ from app.modules.auth.domain.exceptions import AuthRateLimitExceededError
 
 REFRESH_COOKIE_NAME = "invora_refresh_token"
 REFRESH_COOKIE_PATH = "/api/v1/auth"
+AUTH_ORIGIN = "http://localhost:3000"
 REGISTER_PAYLOAD = {
     "email": "owner@example.com",
     "password": "StrongPass1!",
@@ -158,7 +159,10 @@ async def test_refresh_rotates_cookie_and_rejects_the_previous_token(
     )
     assert old_refresh_token is not None
 
-    refresh_response = await auth_client.post("/api/v1/auth/refresh")
+    refresh_response = await auth_client.post(
+        "/api/v1/auth/refresh",
+        headers={"Origin": AUTH_ORIGIN},
+    )
     body = refresh_response.json()
 
     assert refresh_response.status_code == 200
@@ -172,7 +176,10 @@ async def test_refresh_rotates_cookie_and_rejects_the_previous_token(
     auth_client.cookies.clear()
     reuse_response = await auth_client.post(
         "/api/v1/auth/refresh",
-        headers={"Cookie": REFRESH_COOKIE_NAME + "=" + old_refresh_token},
+        headers={
+            "Cookie": REFRESH_COOKIE_NAME + "=" + old_refresh_token,
+            "Origin": AUTH_ORIGIN,
+        },
     )
     assert reuse_response.status_code == 401
     assert reuse_response.json()["error"]["code"] == "revoked_refresh_token"
@@ -183,7 +190,10 @@ async def test_refresh_rotates_cookie_and_rejects_the_previous_token(
 async def test_refresh_without_cookie_returns_safe_error_and_clears_cookie(
     auth_client,
 ) -> None:
-    response = await auth_client.post("/api/v1/auth/refresh")
+    response = await auth_client.post(
+        "/api/v1/auth/refresh",
+        headers={"Origin": AUTH_ORIGIN},
+    )
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "invalid_refresh_token"
@@ -200,18 +210,27 @@ async def test_logout_revokes_cookie_session_and_is_idempotent(auth_client) -> N
     )
     assert refresh_token is not None
 
-    logout_response = await auth_client.post("/api/v1/auth/logout")
+    logout_response = await auth_client.post(
+        "/api/v1/auth/logout",
+        headers={"Origin": AUTH_ORIGIN},
+    )
     assert logout_response.status_code == 200
     assert logout_response.json()["data"]["message"] == "Logged out successfully."
     assert "Max-Age=0" in logout_response.headers["set-cookie"]
 
-    repeated_logout_response = await auth_client.post("/api/v1/auth/logout")
+    repeated_logout_response = await auth_client.post(
+        "/api/v1/auth/logout",
+        headers={"Origin": AUTH_ORIGIN},
+    )
     assert repeated_logout_response.status_code == 200
 
     auth_client.cookies.clear()
     refresh_response = await auth_client.post(
         "/api/v1/auth/refresh",
-        headers={"Cookie": REFRESH_COOKIE_NAME + "=" + refresh_token},
+        headers={
+            "Cookie": REFRESH_COOKIE_NAME + "=" + refresh_token,
+            "Origin": AUTH_ORIGIN,
+        },
     )
     assert refresh_response.status_code == 401
     assert refresh_response.json()["error"]["code"] == "revoked_refresh_token"
@@ -232,3 +251,52 @@ async def test_auth_cors_preflight_allows_configured_frontend_origin(
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
     assert response.headers["access-control-allow-credentials"] == "true"
+
+
+@pytest.mark.asyncio
+async def test_auth_cors_does_not_grant_credentials_to_an_untrusted_origin(
+    auth_client,
+) -> None:
+    response = await auth_client.options(
+        "/api/v1/auth/refresh",
+        headers={
+            "Origin": "https://malicious.example",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+
+
+@pytest.mark.asyncio
+async def test_cookie_auth_mutations_require_a_configured_origin(auth_client) -> None:
+    await auth_client.post("/api/v1/auth/register", json=REGISTER_PAYLOAD)
+    original_token = auth_client.cookies.get(
+        REFRESH_COOKIE_NAME,
+        path=REFRESH_COOKIE_PATH,
+    )
+
+    refresh_response = await auth_client.post(
+        "/api/v1/auth/refresh",
+        headers={"Origin": "https://malicious.example"},
+    )
+    logout_response = await auth_client.post(
+        "/api/v1/auth/logout",
+        headers={"Origin": "https://malicious.example"},
+    )
+
+    assert original_token is not None
+    assert refresh_response.status_code == 403
+    assert refresh_response.json()["error"]["code"] == "invalid_auth_request_origin"
+    assert logout_response.status_code == 403
+    assert logout_response.json()["error"]["code"] == "invalid_auth_request_origin"
+    assert auth_client.cookies.get(REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH) == (
+        original_token
+    )
+
+    trusted_response = await auth_client.post(
+        "/api/v1/auth/refresh",
+        headers={"Origin": AUTH_ORIGIN},
+    )
+    assert trusted_response.status_code == 200

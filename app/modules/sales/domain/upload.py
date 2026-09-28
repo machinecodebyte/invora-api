@@ -36,6 +36,9 @@ UPLOAD_STATUSES = (
 )
 SALES_SOURCES = ("csv_upload", "manual", "api")
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_CSV_ROWS = 100_000
+MAX_CSV_COLUMNS = 32
+MAX_CSV_FIELD_CHARACTERS = 10_000
 ALLOWED_EXTENSIONS = (".csv",)
 ALLOWED_CONTENT_TYPES = {
     "text/csv",
@@ -121,24 +124,30 @@ def parse_sales_csv(content: bytes) -> list[ParsedCsvRow]:
     except UnicodeDecodeError as exc:
         raise InvalidSalesCsvFormatError("Sales CSV must be UTF-8 encoded.") from exc
 
+    previous_field_limit = csv.field_size_limit(MAX_CSV_FIELD_CHARACTERS)
     try:
         reader = csv.DictReader(StringIO(text))
-    except csv.Error as exc:
-        raise InvalidSalesCsvFormatError() from exc
+        if reader.fieldnames is None:
+            raise InvalidSalesCsvFormatError("Sales CSV must include a header row.")
 
-    if reader.fieldnames is None:
-        raise InvalidSalesCsvFormatError("Sales CSV must include a header row.")
+        if len(reader.fieldnames) > MAX_CSV_COLUMNS:
+            raise InvalidSalesCsvFormatError(
+                f"Sales CSV cannot contain more than {MAX_CSV_COLUMNS} columns."
+            )
 
-    normalized_headers = [_normalize_header(header) for header in reader.fieldnames]
-    missing = sorted(set(REQUIRED_COLUMNS) - set(normalized_headers))
-    if missing:
-        raise MissingSalesCsvColumnsError(missing)
-    if len(set(normalized_headers)) != len(normalized_headers):
-        raise InvalidSalesCsvFormatError("Sales CSV contains duplicate columns.")
+        normalized_headers = [_normalize_header(header) for header in reader.fieldnames]
+        missing = sorted(set(REQUIRED_COLUMNS) - set(normalized_headers))
+        if missing:
+            raise MissingSalesCsvColumnsError(missing)
+        if len(set(normalized_headers)) != len(normalized_headers):
+            raise InvalidSalesCsvFormatError("Sales CSV contains duplicate columns.")
 
-    rows: list[ParsedCsvRow] = []
-    try:
+        rows: list[ParsedCsvRow] = []
         for index, raw_row in enumerate(reader, start=2):
+            if index > MAX_CSV_ROWS + 1:
+                raise InvalidSalesCsvFormatError(
+                    f"Sales CSV cannot contain more than {MAX_CSV_ROWS} data rows."
+                )
             if None in raw_row:
                 rows.append(
                     ParsedCsvRow(
@@ -154,6 +163,8 @@ def parse_sales_csv(content: bytes) -> list[ParsedCsvRow]:
             rows.append(ParsedCsvRow(row_number=index, raw_data=normalized_row))
     except csv.Error as exc:
         raise InvalidSalesCsvFormatError() from exc
+    finally:
+        csv.field_size_limit(previous_field_limit)
 
     if not rows:
         raise InvalidSalesCsvFormatError("Sales CSV does not contain data rows.")

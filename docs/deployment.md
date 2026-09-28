@@ -57,6 +57,11 @@ worker wait for migration completion as well as PostgreSQL and Redis health, and
 the API health check uses `/api/v1/health/ready` so a missing RQ worker cannot
 appear ready.
 
+PostgreSQL and Redis Compose port publications now default to `127.0.0.1`.
+Override `POSTGRES_HOST_BIND` or `REDIS_HOST_BIND` only for an intentional,
+firewall-protected local integration need; production services should remain on
+private managed networks rather than be published by Compose.
+
 For browser-contract testing, copy `.live.env.example` to the ignored
 `.live.env`, use distinct container/network/volume names and ports, and run
 Compose with `--env-file .live.env -p invora-harden-live`. This environment is

@@ -9,6 +9,7 @@ from app.modules.auth.api.dependencies import (
     get_auth_service,
     get_current_user,
 )
+from app.modules.auth.api.origin import enforce_cookie_auth_origin
 from app.modules.auth.api.schemas import (
     AccessTokenResponse,
     AuthData,
@@ -125,6 +126,7 @@ async def refresh(
     rate_limiter: Annotated[AuthRateLimiter, Depends(get_auth_rate_limiter)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AuthResponse | JSONResponse:
+    enforce_cookie_auth_origin(request, settings=settings)
     await rate_limiter.enforce_refresh(client_ip=_client_ip(request))
     refresh_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     try:
@@ -166,6 +168,7 @@ async def logout(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> MessageResponse:
+    enforce_cookie_auth_origin(request, settings=settings)
     refresh_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     if refresh_token:
         try:

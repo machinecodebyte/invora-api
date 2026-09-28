@@ -87,7 +87,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
+      - "${POSTGRES_HOST_BIND:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - invora-postgres-data:/var/lib/postgresql/data
     networks:
@@ -102,7 +102,7 @@ services:
     image: redis:7-alpine
     container_name: ${REDIS_CONTAINER_NAME:-invora-redis}
     ports:
-      - "${REDIS_HOST_PORT:-56379}:6379"
+      - "${REDIS_HOST_BIND:-127.0.0.1}:${REDIS_HOST_PORT:-56379}:6379"
     volumes:
       - invora-redis-data:/data
     networks:

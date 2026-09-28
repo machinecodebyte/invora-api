@@ -70,6 +70,15 @@ class RevokedRefreshTokenError(AppError):
         )
 
 
+class InvalidAuthRequestOriginError(AppError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Request origin is not allowed.",
+            code="invalid_auth_request_origin",
+            status_code=403,
+        )
+
+
 class AuthRateLimitExceededError(AppError):
     def __init__(self, retry_after_seconds: int) -> None:
         super().__init__(

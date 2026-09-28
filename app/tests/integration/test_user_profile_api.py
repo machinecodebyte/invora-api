@@ -161,7 +161,10 @@ async def test_refresh_token_reuse_after_password_change_fails(auth_client) -> N
     )
     assert change_response.status_code == 200
 
-    refresh_response = await auth_client.post("/api/v1/auth/refresh")
+    refresh_response = await auth_client.post(
+        "/api/v1/auth/refresh",
+        headers={"Origin": "http://localhost:3000"},
+    )
 
     assert refresh_response.status_code == 401
     assert refresh_response.json()["error"]["code"] == "revoked_refresh_token"

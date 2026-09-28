@@ -126,3 +126,11 @@ explicitly configurable.
 dequeue interval and is validated above a minimum safe value. `/health/ready`
 requires a healthy database, Redis, and a live worker for the configured queues
 when `WORKER_ENABLED=true`.
+
+## Security hardening update
+
+Cookie-authenticated refresh and logout requests require an `Origin` header
+that exactly matches `CORS_ORIGINS`; browser clients therefore need no custom
+CSRF token, but command-line clients should use Bearer APIs rather than the
+cookie refresh boundary. Sales CSV parsing is bounded to 100,000 data rows, 32
+columns, and 10,000 characters per field in addition to its 5 MiB byte limit.
